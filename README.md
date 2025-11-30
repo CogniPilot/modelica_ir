@@ -397,12 +397,24 @@ Model-level and variable-level metadata for annotations:
 See [examples/](examples/) directory:
 
 ### Base Modelica IR Examples
-- [`bouncing_ball_base.json`](examples/bouncing_ball_base.json) - Bouncing ball in Base Modelica format (MCP-0031)
-- Demonstrates: constants/parameters/variables separation, when-equations, source tracking
+
+**Basic Examples:**
+- [bouncing_ball_base.json](examples/bouncing_ball_base.json) - Bouncing ball in Base Modelica format (MCP-0031)
+  - Demonstrates: constants/parameters/variables separation, when-equations, source tracking
+
+**Lie Group Examples (Manifold-Aware Dynamics):**
+- [so3_quaternion_base.json](examples/so3_quaternion_base.json) - SO(3) rotation using quaternions
+  - Demonstrates: attitude dynamics, quaternion kinematics, Lie group annotations
+- [se3_rigid_body_base.json](examples/se3_rigid_body_base.json) - SE(3) rigid body dynamics
+  - Demonstrates: 6-DOF pose representation, Newton-Euler equations on manifolds
+- [se23_uav_base.json](examples/se23_uav_base.json) - SE_2(3) UAV dynamics
+  - Demonstrates: extended pose for underactuated systems, geometric control
+
+See [docs/LIE_GROUP_ANNOTATIONS.md](docs/LIE_GROUP_ANNOTATIONS.md) for comprehensive guide on Lie group annotations.
 
 ### Full Modelica IR Examples
-- [`bouncing_ball_v0.2.json`](examples/bouncing_ball_v0.2.json) - Bouncing ball in full Modelica IR format
-- [`bouncing_ball.json`](examples/bouncing_ball.json) - Legacy v0.1.0 format
+- [bouncing_ball_v0.2.json](examples/bouncing_ball_v0.2.json) - Bouncing ball in full Modelica IR format
+- [bouncing_ball.json](examples/bouncing_ball.json) - Legacy v0.1.0 format
 
 **Recommended:** Use Base Modelica examples as templates for new models.
 
@@ -431,10 +443,12 @@ jsonschema.validate(model, schema)
 print("✓ Valid!")
 ```
 
-## Integration Guides
+## Documentation
 
+- [Lie Group Annotations Guide](docs/LIE_GROUP_ANNOTATIONS.md) - Complete guide to manifold-aware modeling with SO(3), SE(3), SE_2(3)
 - [Cyecca Integration](docs/integration_guides/cyecca.md) - Importing modelica_ir into Cyecca
 - [Rumoca Integration](docs/integration_guides/rumoca.md) - Exporting from Rumoca to modelica_ir
+- [Schema Selection Guide](SCHEMA_SELECTION_GUIDE.md) - Choosing between Base Modelica and Full Modelica IR
 
 ## Design Principles
 

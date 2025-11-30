@@ -1,0 +1,511 @@
+{
+  "ir_version": "base-0.1.0",
+  "base_modelica_version": "0.1",
+  "model_name": "SE3RigidBody",
+  "constants": [
+    {
+      "name": "g_vec",
+      "vartype": "Real",
+      "variability": "constant",
+      "causality": "local",
+      "shape": [3],
+      "start": [0.0, 0.0, -9.81],
+      "unit": "m/s2",
+      "comment": "Gravitational acceleration vector in world frame",
+      "source_ref": "const_g"
+    }
+  ],
+  "parameters": [
+    {
+      "name": "m",
+      "vartype": "Real",
+      "variability": "parameter",
+      "causality": "local",
+      "shape": [],
+      "start": 1.0,
+      "unit": "kg",
+      "comment": "Mass of rigid body",
+      "min": 0.0,
+      "source_ref": "var_m"
+    },
+    {
+      "name": "J",
+      "vartype": "Real",
+      "variability": "parameter",
+      "causality": "local",
+      "shape": [3, 3],
+      "start": [
+        [0.1, 0.0, 0.0],
+        [0.0, 0.1, 0.0],
+        [0.0, 0.0, 0.1]
+      ],
+      "unit": "kg.m2",
+      "comment": "Inertia tensor in body frame",
+      "source_ref": "var_J"
+    }
+  ],
+  "variables": [
+    {
+      "name": "r",
+      "vartype": "Real",
+      "variability": "continuous",
+      "causality": "local",
+      "shape": [3],
+      "start": [0.0, 0.0, 1.0],
+      "unit": "m",
+      "comment": "Position of body center of mass in world frame",
+      "fixed": true,
+      "annotations": {
+        "coordinate_frame": "world",
+        "description": "Translation component of SE(3) configuration"
+      },
+      "source_ref": "var_r"
+    },
+    {
+      "name": "q",
+      "vartype": "Real",
+      "variability": "continuous",
+      "causality": "local",
+      "shape": [4],
+      "start": [1.0, 0.0, 0.0, 0.0],
+      "unit": "",
+      "comment": "Quaternion representing body orientation (scalar-first: [w, x, y, z])",
+      "fixed": true,
+      "annotations": {
+        "lie_group": "SO3",
+        "manifold_chart": "quaternion",
+        "convention": "scalar_first",
+        "description": "Rotation component of SE(3) configuration"
+      },
+      "source_ref": "var_q"
+    },
+    {
+      "name": "v",
+      "vartype": "Real",
+      "variability": "continuous",
+      "causality": "local",
+      "shape": [3],
+      "start": [0.0, 0.0, 0.0],
+      "unit": "m/s",
+      "comment": "Linear velocity of center of mass in world frame",
+      "fixed": true,
+      "annotations": {
+        "coordinate_frame": "world",
+        "description": "Linear velocity component of SE(3) tangent space"
+      },
+      "source_ref": "var_v"
+    },
+    {
+      "name": "omega",
+      "vartype": "Real",
+      "variability": "continuous",
+      "causality": "local",
+      "shape": [3],
+      "start": [0.0, 0.0, 0.0],
+      "unit": "rad/s",
+      "comment": "Angular velocity in body frame",
+      "fixed": true,
+      "annotations": {
+        "tangent_space": "so3",
+        "coordinate_frame": "body",
+        "description": "Angular velocity component of SE(3) tangent space"
+      },
+      "source_ref": "var_omega"
+    },
+    {
+      "name": "F_ext",
+      "vartype": "Real",
+      "variability": "continuous",
+      "causality": "input",
+      "shape": [3],
+      "start": [0.0, 0.0, 0.0],
+      "unit": "N",
+      "comment": "External force applied to body in world frame",
+      "source_ref": "var_F_ext"
+    },
+    {
+      "name": "tau_ext",
+      "vartype": "Real",
+      "variability": "continuous",
+      "causality": "input",
+      "shape": [3],
+      "start": [0.0, 0.0, 0.0],
+      "unit": "N.m",
+      "comment": "External torque applied to body in body frame",
+      "source_ref": "var_tau_ext"
+    }
+  ],
+  "equations": [
+    {
+      "eq_type": "simple",
+      "lhs": {
+        "op": "der",
+        "args": [
+          {
+            "op": "component_ref",
+            "parts": [{"name": "r", "subscripts": []}]
+          }
+        ]
+      },
+      "rhs": {
+        "op": "component_ref",
+        "parts": [{"name": "v", "subscripts": []}]
+      },
+      "comment": "Position kinematics: dr/dt = v",
+      "source_ref": "eq_001"
+    },
+    {
+      "eq_type": "simple",
+      "lhs": {
+        "op": "der",
+        "args": [
+          {
+            "op": "component_ref",
+            "parts": [{"name": "q", "subscripts": []}]
+          }
+        ]
+      },
+      "rhs": {
+        "op": "*",
+        "args": [
+          {
+            "op": "literal",
+            "value": 0.5
+          },
+          {
+            "op": "function_call",
+            "name": "quaternion_multiply",
+            "args": [
+              {
+                "op": "component_ref",
+                "parts": [{"name": "q", "subscripts": []}]
+              },
+              {
+                "op": "array",
+                "values": [
+                  {"op": "literal", "value": 0.0},
+                  {
+                    "op": "subscript",
+                    "args": [
+                      {"op": "component_ref", "parts": [{"name": "omega", "subscripts": []}]},
+                      {"op": "literal", "value": 1}
+                    ]
+                  },
+                  {
+                    "op": "subscript",
+                    "args": [
+                      {"op": "component_ref", "parts": [{"name": "omega", "subscripts": []}]},
+                      {"op": "literal", "value": 2}
+                    ]
+                  },
+                  {
+                    "op": "subscript",
+                    "args": [
+                      {"op": "component_ref", "parts": [{"name": "omega", "subscripts": []}]},
+                      {"op": "literal", "value": 3}
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "comment": "Orientation kinematics: dq/dt = 0.5 * q ⊗ [0; ω]",
+      "source_ref": "eq_002"
+    },
+    {
+      "eq_type": "simple",
+      "lhs": {
+        "op": "*",
+        "args": [
+          {
+            "op": "component_ref",
+            "parts": [{"name": "m", "subscripts": []}]
+          },
+          {
+            "op": "der",
+            "args": [
+              {
+                "op": "component_ref",
+                "parts": [{"name": "v", "subscripts": []}]
+              }
+            ]
+          }
+        ]
+      },
+      "rhs": {
+        "op": "+",
+        "args": [
+          {
+            "op": "+",
+            "args": [
+              {
+                "op": "*",
+                "args": [
+                  {
+                    "op": "component_ref",
+                    "parts": [{"name": "m", "subscripts": []}]
+                  },
+                  {
+                    "op": "component_ref",
+                    "parts": [{"name": "g_vec", "subscripts": []}]
+                  }
+                ]
+              },
+              {
+                "op": "component_ref",
+                "parts": [{"name": "F_ext", "subscripts": []}]
+              }
+            ]
+          }
+        ]
+      },
+      "comment": "Newton's second law: m * dv/dt = m*g + F_ext",
+      "source_ref": "eq_003"
+    },
+    {
+      "eq_type": "simple",
+      "lhs": {
+        "op": "+",
+        "args": [
+          {
+            "op": "*",
+            "args": [
+              {
+                "op": "component_ref",
+                "parts": [{"name": "J", "subscripts": []}]
+              },
+              {
+                "op": "der",
+                "args": [
+                  {
+                    "op": "component_ref",
+                    "parts": [{"name": "omega", "subscripts": []}]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "function_call",
+            "name": "cross",
+            "args": [
+              {
+                "op": "component_ref",
+                "parts": [{"name": "omega", "subscripts": []}]
+              },
+              {
+                "op": "*",
+                "args": [
+                  {
+                    "op": "component_ref",
+                    "parts": [{"name": "J", "subscripts": []}]
+                  },
+                  {
+                    "op": "component_ref",
+                    "parts": [{"name": "omega", "subscripts": []}]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "rhs": {
+        "op": "component_ref",
+        "parts": [{"name": "tau_ext", "subscripts": []}]
+      },
+      "comment": "Euler's rotation equation: J*dω/dt + ω × (J*ω) = τ_ext",
+      "source_ref": "eq_004"
+    }
+  ],
+  "initial_equations": [],
+  "algorithms": [],
+  "initial_algorithms": [],
+  "functions": [
+    {
+      "name": "quaternion_multiply",
+      "inputs": [
+        {
+          "name": "q1",
+          "vartype": "Real",
+          "shape": [4],
+          "comment": "First quaternion [w, x, y, z]"
+        },
+        {
+          "name": "q2",
+          "vartype": "Real",
+          "shape": [4],
+          "comment": "Second quaternion [w, x, y, z]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "result",
+          "vartype": "Real",
+          "shape": [4],
+          "comment": "Product q1 ⊗ q2"
+        }
+      ],
+      "algorithms": [],
+      "comment": "Quaternion multiplication using Hamilton product",
+      "source_ref": "func_quat_mult"
+    },
+    {
+      "name": "cross",
+      "inputs": [
+        {
+          "name": "a",
+          "vartype": "Real",
+          "shape": [3],
+          "comment": "First vector"
+        },
+        {
+          "name": "b",
+          "vartype": "Real",
+          "shape": [3],
+          "comment": "Second vector"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "result",
+          "vartype": "Real",
+          "shape": [3],
+          "comment": "Cross product a × b"
+        }
+      ],
+      "algorithms": [],
+      "comment": "Vector cross product in R³",
+      "source_ref": "func_cross"
+    }
+  ],
+  "source_info": {
+    "const_g": {
+      "file": "SE3RigidBody.mo",
+      "line": 2,
+      "column": 3,
+      "original_code": "constant Real[3] g_vec = {0.0, 0.0, -9.81} \"Gravitational acceleration vector\";"
+    },
+    "var_m": {
+      "file": "SE3RigidBody.mo",
+      "line": 3,
+      "column": 3,
+      "original_code": "parameter Real m = 1.0 \"Mass of rigid body\";"
+    },
+    "var_J": {
+      "file": "SE3RigidBody.mo",
+      "line": 4,
+      "column": 3,
+      "original_code": "parameter Real[3,3] J = diagonal({0.1, 0.1, 0.1}) \"Inertia tensor in body frame\";"
+    },
+    "var_r": {
+      "file": "SE3RigidBody.mo",
+      "line": 5,
+      "column": 3,
+      "original_code": "Real[3] r(start={0.0, 0.0, 1.0}, unit=\"m\") \"Position of body center of mass\";"
+    },
+    "var_q": {
+      "file": "SE3RigidBody.mo",
+      "line": 6,
+      "column": 3,
+      "original_code": "Real[4] q(start={1.0, 0.0, 0.0, 0.0}) \"Quaternion representing body orientation\";"
+    },
+    "var_v": {
+      "file": "SE3RigidBody.mo",
+      "line": 7,
+      "column": 3,
+      "original_code": "Real[3] v(start={0.0, 0.0, 0.0}, unit=\"m/s\") \"Linear velocity\";"
+    },
+    "var_omega": {
+      "file": "SE3RigidBody.mo",
+      "line": 8,
+      "column": 3,
+      "original_code": "Real[3] omega(start={0.0, 0.0, 0.0}, unit=\"rad/s\") \"Angular velocity in body frame\";"
+    },
+    "var_F_ext": {
+      "file": "SE3RigidBody.mo",
+      "line": 9,
+      "column": 3,
+      "original_code": "input Real[3] F_ext \"External force applied to body\";"
+    },
+    "var_tau_ext": {
+      "file": "SE3RigidBody.mo",
+      "line": 10,
+      "column": 3,
+      "original_code": "input Real[3] tau_ext \"External torque applied to body\";"
+    },
+    "eq_001": {
+      "file": "SE3RigidBody.mo",
+      "line": 12,
+      "column": 3,
+      "original_code": "der(r) = v;"
+    },
+    "eq_002": {
+      "file": "SE3RigidBody.mo",
+      "line": 13,
+      "column": 3,
+      "original_code": "der(q) = 0.5 * quaternion_multiply(q, {0.0, omega[1], omega[2], omega[3]});"
+    },
+    "eq_003": {
+      "file": "SE3RigidBody.mo",
+      "line": 14,
+      "column": 3,
+      "original_code": "m * der(v) = m*g_vec + F_ext;"
+    },
+    "eq_004": {
+      "file": "SE3RigidBody.mo",
+      "line": 15,
+      "column": 3,
+      "original_code": "J*der(omega) + cross(omega, J*omega) = tau_ext;"
+    },
+    "func_quat_mult": {
+      "file": "SE3RigidBody.mo",
+      "line": 18,
+      "column": 1,
+      "original_code": "function quaternion_multiply ... end quaternion_multiply;"
+    },
+    "func_cross": {
+      "file": "SE3RigidBody.mo",
+      "line": 23,
+      "column": 1,
+      "original_code": "function cross ... end cross;"
+    }
+  },
+  "metadata": {
+    "description": "SE(3) rigid body dynamics with manifold-aware kinematics for position and orientation",
+    "author": "Cyecca Lie Group Example",
+    "base_modelica_compliance": "0.1",
+    "lie_groups": {
+      "SE3": {
+        "description": "Special Euclidean Group in 3D - rigid body poses (position + orientation)",
+        "dimension": 6,
+        "embedding_dimension": 7,
+        "semidirect_product": {
+          "translation": "R3",
+          "rotation": "SO3"
+        },
+        "charts": {
+          "position_quaternion": {
+            "coordinates": ["r", "q"],
+            "constraints": [
+              "q[1]^2 + q[2]^2 + q[3]^2 + q[4]^2 = 1"
+            ],
+            "description": "Position vector (R³) and unit quaternion (S³)"
+          }
+        },
+        "tangent_space": {
+          "name": "se3",
+          "coordinates": ["v", "omega"],
+          "description": "Linear velocity (R³) and angular velocity (so(3))",
+          "coordinate_frames": {
+            "v": "world",
+            "omega": "body"
+          }
+        }
+      }
+    },
+    "notes": "Demonstrates SE(3) manifold representation for 6-DOF rigid body dynamics. The configuration space combines position (R³) and orientation (SO(3)) as a semidirect product. Velocities are expressed in their natural frames: linear velocity in world frame, angular velocity in body frame. This representation avoids gimbal lock and provides numerically stable dynamics simulation."
+  }
+}

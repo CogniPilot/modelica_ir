@@ -1,0 +1,231 @@
+{
+  "ir_version": "base-0.1.0",
+  "base_modelica_version": "0.1",
+  "model_name": "SO3QuaternionRotation",
+  "constants": [],
+  "parameters": [
+    {
+      "name": "omega_ref",
+      "vartype": "Real",
+      "variability": "parameter",
+      "causality": "local",
+      "shape": [3],
+      "start": [0.0, 0.0, 1.0],
+      "unit": "rad/s",
+      "comment": "Reference angular velocity vector in body frame",
+      "source_ref": "var_omega_ref"
+    }
+  ],
+  "variables": [
+    {
+      "name": "q",
+      "vartype": "Real",
+      "variability": "continuous",
+      "causality": "local",
+      "shape": [4],
+      "start": [1.0, 0.0, 0.0, 0.0],
+      "unit": "",
+      "comment": "Quaternion representing rotation (scalar-first convention: [w, x, y, z])",
+      "fixed": true,
+      "annotations": {
+        "lie_group": "SO3",
+        "manifold_chart": "quaternion",
+        "convention": "scalar_first",
+        "description": "Unit quaternion on SO(3) manifold for attitude representation"
+      },
+      "source_ref": "var_q"
+    },
+    {
+      "name": "omega",
+      "vartype": "Real",
+      "variability": "continuous",
+      "causality": "local",
+      "shape": [3],
+      "start": [0.0, 0.0, 0.0],
+      "unit": "rad/s",
+      "comment": "Angular velocity in body frame",
+      "fixed": true,
+      "annotations": {
+        "tangent_space": "so3",
+        "description": "Velocity vector in tangent space of SO(3) at current configuration"
+      },
+      "source_ref": "var_omega"
+    }
+  ],
+  "equations": [
+    {
+      "eq_type": "simple",
+      "lhs": {
+        "op": "der",
+        "args": [
+          {
+            "op": "component_ref",
+            "parts": [{"name": "q", "subscripts": []}]
+          }
+        ]
+      },
+      "rhs": {
+        "op": "*",
+        "args": [
+          {
+            "op": "literal",
+            "value": 0.5
+          },
+          {
+            "op": "function_call",
+            "name": "quaternion_multiply",
+            "args": [
+              {
+                "op": "component_ref",
+                "parts": [{"name": "q", "subscripts": []}]
+              },
+              {
+                "op": "array",
+                "values": [
+                  {"op": "literal", "value": 0.0},
+                  {
+                    "op": "subscript",
+                    "args": [
+                      {"op": "component_ref", "parts": [{"name": "omega", "subscripts": []}]},
+                      {"op": "literal", "value": 1}
+                    ]
+                  },
+                  {
+                    "op": "subscript",
+                    "args": [
+                      {"op": "component_ref", "parts": [{"name": "omega", "subscripts": []}]},
+                      {"op": "literal", "value": 2}
+                    ]
+                  },
+                  {
+                    "op": "subscript",
+                    "args": [
+                      {"op": "component_ref", "parts": [{"name": "omega", "subscripts": []}]},
+                      {"op": "literal", "value": 3}
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "comment": "Kinematic differential equation: dq/dt = 0.5 * q ⊗ [0; ω]",
+      "source_ref": "eq_001"
+    },
+    {
+      "eq_type": "simple",
+      "lhs": {
+        "op": "der",
+        "args": [
+          {
+            "op": "component_ref",
+            "parts": [{"name": "omega", "subscripts": []}]
+          }
+        ]
+      },
+      "rhs": {
+        "op": "component_ref",
+        "parts": [{"name": "omega_ref", "subscripts": []}]
+      },
+      "comment": "Simple tracking control: angular acceleration tracks reference velocity",
+      "source_ref": "eq_002"
+    }
+  ],
+  "initial_equations": [],
+  "algorithms": [],
+  "initial_algorithms": [],
+  "functions": [
+    {
+      "name": "quaternion_multiply",
+      "inputs": [
+        {
+          "name": "q1",
+          "vartype": "Real",
+          "shape": [4],
+          "comment": "First quaternion [w, x, y, z]"
+        },
+        {
+          "name": "q2",
+          "vartype": "Real",
+          "shape": [4],
+          "comment": "Second quaternion [w, x, y, z]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "result",
+          "vartype": "Real",
+          "shape": [4],
+          "comment": "Product q1 ⊗ q2"
+        }
+      ],
+      "algorithms": [],
+      "comment": "Quaternion multiplication using Hamilton product",
+      "source_ref": "func_quat_mult"
+    }
+  ],
+  "source_info": {
+    "var_omega_ref": {
+      "file": "SO3QuaternionRotation.mo",
+      "line": 3,
+      "column": 3,
+      "original_code": "parameter Real[3] omega_ref = {0.0, 0.0, 1.0} \"Reference angular velocity vector in body frame\";"
+    },
+    "var_q": {
+      "file": "SO3QuaternionRotation.mo",
+      "line": 4,
+      "column": 3,
+      "original_code": "Real[4] q(start={1.0, 0.0, 0.0, 0.0}) \"Quaternion representing rotation\";"
+    },
+    "var_omega": {
+      "file": "SO3QuaternionRotation.mo",
+      "line": 5,
+      "column": 3,
+      "original_code": "Real[3] omega(start={0.0, 0.0, 0.0}, unit=\"rad/s\") \"Angular velocity in body frame\";"
+    },
+    "eq_001": {
+      "file": "SO3QuaternionRotation.mo",
+      "line": 7,
+      "column": 3,
+      "original_code": "der(q) = 0.5 * quaternion_multiply(q, {0.0, omega[1], omega[2], omega[3]});"
+    },
+    "eq_002": {
+      "file": "SO3QuaternionRotation.mo",
+      "line": 8,
+      "column": 3,
+      "original_code": "der(omega) = omega_ref;"
+    },
+    "func_quat_mult": {
+      "file": "SO3QuaternionRotation.mo",
+      "line": 11,
+      "column": 1,
+      "original_code": "function quaternion_multiply ... end quaternion_multiply;"
+    }
+  },
+  "metadata": {
+    "description": "SO(3) rotation using unit quaternion representation with manifold-aware kinematics",
+    "author": "Cyecca Lie Group Example",
+    "base_modelica_compliance": "0.1",
+    "lie_groups": {
+      "SO3": {
+        "description": "Special Orthogonal Group in 3D - rotations in 3D space",
+        "dimension": 3,
+        "embedding_dimension": 4,
+        "charts": {
+          "quaternion": {
+            "coordinates": ["q"],
+            "constraint": "q[1]^2 + q[2]^2 + q[3]^2 + q[4]^2 = 1",
+            "normalization_required": true
+          }
+        },
+        "tangent_space": {
+          "name": "so3",
+          "coordinates": ["omega"],
+          "description": "Angular velocity vectors (Lie algebra of SO(3))"
+        }
+      }
+    },
+    "notes": "Demonstrates SO(3) manifold representation using quaternions. The kinematic equation preserves the quaternion constraint through proper manifold-aware integration. Solvers should use manifold projection or constrained integration to maintain unit norm."
+  }
+}

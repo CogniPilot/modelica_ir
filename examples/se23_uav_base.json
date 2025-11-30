@@ -1,0 +1,807 @@
+{
+  "ir_version": "base-0.1.0",
+  "base_modelica_version": "0.1",
+  "model_name": "SE23UAV",
+  "constants": [
+    {
+      "name": "g",
+      "vartype": "Real",
+      "variability": "constant",
+      "causality": "local",
+      "shape": [],
+      "start": 9.81,
+      "unit": "m/s2",
+      "comment": "Gravitational acceleration magnitude",
+      "source_ref": "const_g"
+    }
+  ],
+  "parameters": [
+    {
+      "name": "m",
+      "vartype": "Real",
+      "variability": "parameter",
+      "causality": "local",
+      "shape": [],
+      "start": 2.0,
+      "unit": "kg",
+      "comment": "UAV mass",
+      "min": 0.0,
+      "source_ref": "var_m"
+    },
+    {
+      "name": "J",
+      "vartype": "Real",
+      "variability": "parameter",
+      "causality": "local",
+      "shape": [3, 3],
+      "start": [
+        [0.05, 0.0, 0.0],
+        [0.0, 0.05, 0.0],
+        [0.0, 0.0, 0.08]
+      ],
+      "unit": "kg.m2",
+      "comment": "Inertia tensor in body frame",
+      "source_ref": "var_J"
+    }
+  ],
+  "variables": [
+    {
+      "name": "X",
+      "vartype": "Real",
+      "variability": "continuous",
+      "causality": "local",
+      "shape": [5, 3],
+      "start": [
+        [0.0, 0.0, 1.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0],
+        [0.0, 0.0, 0.0]
+      ],
+      "unit": "",
+      "comment": "SE(2,3) extended pose matrix: [p; R; v] where p is position, R is rotation matrix, v is velocity",
+      "fixed": true,
+      "annotations": {
+        "lie_group": "SE_2_3",
+        "manifold_chart": "extended_pose_matrix",
+        "description": "Extended pose on SE_2(3) manifold combining position, orientation, and velocity",
+        "structure": {
+          "rows": {
+            "1": "position vector p ∈ R³",
+            "2-4": "rotation matrix R ∈ SO(3)",
+            "5": "velocity vector v ∈ R³"
+          },
+          "constraints": [
+            "R^T * R = I (orthogonality)",
+            "det(R) = 1 (proper rotation)",
+            "p, v ∈ R³"
+          ]
+        }
+      },
+      "source_ref": "var_X"
+    },
+    {
+      "name": "Omega",
+      "vartype": "Real",
+      "variability": "continuous",
+      "causality": "local",
+      "shape": [5, 3],
+      "start": [
+        [0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0],
+        [0.0, 0.0, -9.81]
+      ],
+      "unit": "",
+      "comment": "Body-frame velocity (Lie algebra element): [v_b; ω_skew; a_b]",
+      "fixed": true,
+      "annotations": {
+        "tangent_space": "se_2_3",
+        "coordinate_frame": "body",
+        "description": "Velocity in tangent space of SE_2(3) at current configuration",
+        "structure": {
+          "rows": {
+            "1": "body-frame linear velocity v_b ∈ R³",
+            "2-4": "body-frame angular velocity ω in skew-symmetric matrix form",
+            "5": "body-frame linear acceleration a_b ∈ R³"
+          }
+        }
+      },
+      "source_ref": "var_Omega"
+    },
+    {
+      "name": "u_thrust",
+      "vartype": "Real",
+      "variability": "continuous",
+      "causality": "input",
+      "shape": [],
+      "start": 19.62,
+      "unit": "N",
+      "comment": "Thrust force magnitude (control input)",
+      "source_ref": "var_u_thrust"
+    },
+    {
+      "name": "u_torque",
+      "vartype": "Real",
+      "variability": "continuous",
+      "causality": "input",
+      "shape": [3],
+      "start": [0.0, 0.0, 0.0],
+      "unit": "N.m",
+      "comment": "Control torques in body frame (roll, pitch, yaw)",
+      "source_ref": "var_u_torque"
+    }
+  ],
+  "equations": [
+    {
+      "eq_type": "simple",
+      "lhs": {
+        "op": "der",
+        "args": [
+          {
+            "op": "component_ref",
+            "parts": [{"name": "X", "subscripts": []}]
+          }
+        ]
+      },
+      "rhs": {
+        "op": "function_call",
+        "name": "se23_product",
+        "args": [
+          {
+            "op": "component_ref",
+            "parts": [{"name": "X", "subscripts": []}]
+          },
+          {
+            "op": "component_ref",
+            "parts": [{"name": "Omega", "subscripts": []}]
+          }
+        ]
+      },
+      "comment": "SE(2,3) kinematic equation: dX/dt = X ⊕ Ω (right-invariant)",
+      "source_ref": "eq_001"
+    },
+    {
+      "eq_type": "simple",
+      "lhs": {
+        "op": "subscript",
+        "args": [
+          {
+            "op": "subscript",
+            "args": [
+              {
+                "op": "component_ref",
+                "parts": [{"name": "Omega", "subscripts": []}]
+              },
+              {"op": "literal", "value": 1}
+            ]
+          },
+          {"op": "range", "start": 1, "end": 3}
+        ]
+      },
+      "rhs": {
+        "op": "function_call",
+        "name": "velocity_body_to_world",
+        "args": [
+          {
+            "op": "subscript",
+            "args": [
+              {
+                "op": "component_ref",
+                "parts": [{"name": "X", "subscripts": []}]
+              },
+              {"op": "range", "start": 2, "end": 4}
+            ]
+          },
+          {
+            "op": "subscript",
+            "args": [
+              {
+                "op": "component_ref",
+                "parts": [{"name": "X", "subscripts": []}]
+              },
+              {"op": "literal", "value": 5}
+            ]
+          }
+        ]
+      },
+      "comment": "Extract body-frame linear velocity from world-frame velocity",
+      "source_ref": "eq_002"
+    },
+    {
+      "eq_type": "simple",
+      "lhs": {
+        "op": "subscript",
+        "args": [
+          {
+            "op": "component_ref",
+            "parts": [{"name": "Omega", "subscripts": []}]
+          },
+          {"op": "range", "start": 2, "end": 4}
+        ]
+      },
+      "rhs": {
+        "op": "function_call",
+        "name": "skew_symmetric",
+        "args": [
+          {
+            "op": "function_call",
+            "name": "extract_angular_velocity",
+            "args": [
+              {
+                "op": "component_ref",
+                "parts": [{"name": "X", "subscripts": []}]
+              }
+            ]
+          }
+        ]
+      },
+      "comment": "Extract angular velocity from rotation matrix time derivative",
+      "source_ref": "eq_003"
+    },
+    {
+      "eq_type": "simple",
+      "lhs": {
+        "op": "subscript",
+        "args": [
+          {
+            "op": "subscript",
+            "args": [
+              {
+                "op": "component_ref",
+                "parts": [{"name": "Omega", "subscripts": []}]
+              },
+              {"op": "literal", "value": 5}
+            ]
+          },
+          {"op": "range", "start": 1, "end": 3}
+        ]
+      },
+      "rhs": {
+        "op": "+",
+        "args": [
+          {
+            "op": "+",
+            "args": [
+              {
+                "op": "array",
+                "values": [
+                  {"op": "literal", "value": 0.0},
+                  {"op": "literal", "value": 0.0},
+                  {
+                    "op": "/",
+                    "args": [
+                      {
+                        "op": "neg",
+                        "args": [
+                          {
+                            "op": "component_ref",
+                            "parts": [{"name": "g", "subscripts": []}]
+                          }
+                        ]
+                      },
+                      {
+                        "op": "component_ref",
+                        "parts": [{"name": "m", "subscripts": []}]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "op": "/",
+                "args": [
+                  {
+                    "op": "array",
+                    "values": [
+                      {"op": "literal", "value": 0.0},
+                      {"op": "literal", "value": 0.0},
+                      {
+                        "op": "component_ref",
+                        "parts": [{"name": "u_thrust", "subscripts": []}]
+                      }
+                    ]
+                  },
+                  {
+                    "op": "component_ref",
+                    "parts": [{"name": "m", "subscripts": []}]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "op": "function_call",
+            "name": "cross",
+            "args": [
+              {
+                "op": "subscript",
+                "args": [
+                  {
+                    "op": "subscript",
+                    "args": [
+                      {
+                        "op": "component_ref",
+                        "parts": [{"name": "Omega", "subscripts": []}]
+                      },
+                      {"op": "literal", "value": 1}
+                    ]
+                  },
+                  {"op": "range", "start": 1, "end": 3}
+                ]
+              },
+              {
+                "op": "function_call",
+                "name": "unskew",
+                "args": [
+                  {
+                    "op": "subscript",
+                    "args": [
+                      {
+                        "op": "component_ref",
+                        "parts": [{"name": "Omega", "subscripts": []}]
+                      },
+                      {"op": "range", "start": 2, "end": 4}
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "comment": "UAV dynamics: a_b = -g/m * e_z + thrust/m * e_z + v_b × ω (includes gravity, thrust, centripetal)",
+      "source_ref": "eq_004"
+    },
+    {
+      "eq_type": "simple",
+      "lhs": {
+        "op": "der",
+        "args": [
+          {
+            "op": "function_call",
+            "name": "unskew",
+            "args": [
+              {
+                "op": "subscript",
+                "args": [
+                  {
+                    "op": "component_ref",
+                    "parts": [{"name": "Omega", "subscripts": []}]
+                  },
+                  {"op": "range", "start": 2, "end": 4}
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "rhs": {
+        "op": "function_call",
+        "name": "solve",
+        "args": [
+          {
+            "op": "component_ref",
+            "parts": [{"name": "J", "subscripts": []}]
+          },
+          {
+            "op": "-",
+            "args": [
+              {
+                "op": "component_ref",
+                "parts": [{"name": "u_torque", "subscripts": []}]
+              },
+              {
+                "op": "function_call",
+                "name": "cross",
+                "args": [
+                  {
+                    "op": "function_call",
+                    "name": "unskew",
+                    "args": [
+                      {
+                        "op": "subscript",
+                        "args": [
+                          {
+                            "op": "component_ref",
+                            "parts": [{"name": "Omega", "subscripts": []}]
+                          },
+                          {"op": "range", "start": 2, "end": 4}
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "op": "*",
+                    "args": [
+                      {
+                        "op": "component_ref",
+                        "parts": [{"name": "J", "subscripts": []}]
+                      },
+                      {
+                        "op": "function_call",
+                        "name": "unskew",
+                        "args": [
+                          {
+                            "op": "subscript",
+                            "args": [
+                              {
+                                "op": "component_ref",
+                                "parts": [{"name": "Omega", "subscripts": []}]
+                              },
+                              {"op": "range", "start": 2, "end": 4}
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "comment": "Euler's rotation equation: J * dω/dt = τ - ω × (J*ω)",
+      "source_ref": "eq_005"
+    }
+  ],
+  "initial_equations": [],
+  "algorithms": [],
+  "initial_algorithms": [],
+  "functions": [
+    {
+      "name": "se23_product",
+      "inputs": [
+        {
+          "name": "X",
+          "vartype": "Real",
+          "shape": [5, 3],
+          "comment": "SE(2,3) configuration matrix"
+        },
+        {
+          "name": "Omega",
+          "vartype": "Real",
+          "shape": [5, 3],
+          "comment": "se(2,3) velocity element"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "result",
+          "vartype": "Real",
+          "shape": [5, 3],
+          "comment": "Right-invariant derivative X ⊕ Ω"
+        }
+      ],
+      "algorithms": [],
+      "comment": "SE(2,3) group action on Lie algebra element (right multiplication)",
+      "source_ref": "func_se23_prod"
+    },
+    {
+      "name": "skew_symmetric",
+      "inputs": [
+        {
+          "name": "v",
+          "vartype": "Real",
+          "shape": [3],
+          "comment": "Vector in R³"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "result",
+          "vartype": "Real",
+          "shape": [3, 3],
+          "comment": "Skew-symmetric matrix [v]×"
+        }
+      ],
+      "algorithms": [],
+      "comment": "Convert vector to skew-symmetric matrix for cross product",
+      "source_ref": "func_skew"
+    },
+    {
+      "name": "unskew",
+      "inputs": [
+        {
+          "name": "M",
+          "vartype": "Real",
+          "shape": [3, 3],
+          "comment": "Skew-symmetric matrix"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "result",
+          "vartype": "Real",
+          "shape": [3],
+          "comment": "Corresponding vector v such that M = [v]×"
+        }
+      ],
+      "algorithms": [],
+      "comment": "Extract vector from skew-symmetric matrix",
+      "source_ref": "func_unskew"
+    },
+    {
+      "name": "velocity_body_to_world",
+      "inputs": [
+        {
+          "name": "R",
+          "vartype": "Real",
+          "shape": [3, 3],
+          "comment": "Rotation matrix"
+        },
+        {
+          "name": "v_world",
+          "vartype": "Real",
+          "shape": [3],
+          "comment": "Velocity in world frame"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "v_body",
+          "vartype": "Real",
+          "shape": [3],
+          "comment": "Velocity in body frame"
+        }
+      ],
+      "algorithms": [],
+      "comment": "Transform velocity from world to body frame: v_b = R^T * v_w",
+      "source_ref": "func_vel_transform"
+    },
+    {
+      "name": "extract_angular_velocity",
+      "inputs": [
+        {
+          "name": "X",
+          "vartype": "Real",
+          "shape": [5, 3],
+          "comment": "SE(2,3) configuration matrix"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "omega",
+          "vartype": "Real",
+          "shape": [3],
+          "comment": "Angular velocity vector"
+        }
+      ],
+      "algorithms": [],
+      "comment": "Extract angular velocity from SE(2,3) matrix time derivative",
+      "source_ref": "func_extract_omega"
+    },
+    {
+      "name": "cross",
+      "inputs": [
+        {
+          "name": "a",
+          "vartype": "Real",
+          "shape": [3],
+          "comment": "First vector"
+        },
+        {
+          "name": "b",
+          "vartype": "Real",
+          "shape": [3],
+          "comment": "Second vector"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "result",
+          "vartype": "Real",
+          "shape": [3],
+          "comment": "Cross product a × b"
+        }
+      ],
+      "algorithms": [],
+      "comment": "Vector cross product in R³",
+      "source_ref": "func_cross"
+    },
+    {
+      "name": "solve",
+      "inputs": [
+        {
+          "name": "A",
+          "vartype": "Real",
+          "shape": [3, 3],
+          "comment": "Coefficient matrix"
+        },
+        {
+          "name": "b",
+          "vartype": "Real",
+          "shape": [3],
+          "comment": "Right-hand side vector"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "x",
+          "vartype": "Real",
+          "shape": [3],
+          "comment": "Solution vector x such that A*x = b"
+        }
+      ],
+      "algorithms": [],
+      "comment": "Solve linear system A*x = b",
+      "source_ref": "func_solve"
+    }
+  ],
+  "source_info": {
+    "const_g": {
+      "file": "SE23UAV.mo",
+      "line": 2,
+      "column": 3,
+      "original_code": "constant Real g = 9.81 \"Gravitational acceleration\";"
+    },
+    "var_m": {
+      "file": "SE23UAV.mo",
+      "line": 3,
+      "column": 3,
+      "original_code": "parameter Real m = 2.0 \"UAV mass\";"
+    },
+    "var_J": {
+      "file": "SE23UAV.mo",
+      "line": 4,
+      "column": 3,
+      "original_code": "parameter Real[3,3] J = diagonal({0.05, 0.05, 0.08}) \"Inertia tensor\";"
+    },
+    "var_X": {
+      "file": "SE23UAV.mo",
+      "line": 5,
+      "column": 3,
+      "original_code": "Real[5,3] X(start=...) \"SE(2,3) extended pose matrix\";"
+    },
+    "var_Omega": {
+      "file": "SE23UAV.mo",
+      "line": 6,
+      "column": 3,
+      "original_code": "Real[5,3] Omega(start=...) \"Body-frame velocity (Lie algebra element)\";"
+    },
+    "var_u_thrust": {
+      "file": "SE23UAV.mo",
+      "line": 7,
+      "column": 3,
+      "original_code": "input Real u_thrust = 19.62 \"Thrust force magnitude\";"
+    },
+    "var_u_torque": {
+      "file": "SE23UAV.mo",
+      "line": 8,
+      "column": 3,
+      "original_code": "input Real[3] u_torque = {0,0,0} \"Control torques in body frame\";"
+    },
+    "eq_001": {
+      "file": "SE23UAV.mo",
+      "line": 10,
+      "column": 3,
+      "original_code": "der(X) = se23_product(X, Omega);"
+    },
+    "eq_002": {
+      "file": "SE23UAV.mo",
+      "line": 11,
+      "column": 3,
+      "original_code": "Omega[1,:] = velocity_body_to_world(X[2:4,:], X[5,:]);"
+    },
+    "eq_003": {
+      "file": "SE23UAV.mo",
+      "line": 12,
+      "column": 3,
+      "original_code": "Omega[2:4,:] = skew_symmetric(extract_angular_velocity(X));"
+    },
+    "eq_004": {
+      "file": "SE23UAV.mo",
+      "line": 13,
+      "column": 3,
+      "original_code": "Omega[5,:] = {0,0,-g/m} + {0,0,u_thrust}/m + cross(Omega[1,:], unskew(Omega[2:4,:]));"
+    },
+    "eq_005": {
+      "file": "SE23UAV.mo",
+      "line": 14,
+      "column": 3,
+      "original_code": "der(unskew(Omega[2:4,:])) = solve(J, u_torque - cross(unskew(Omega[2:4,:]), J*unskew(Omega[2:4,:])));"
+    },
+    "func_se23_prod": {
+      "file": "SE23UAV.mo",
+      "line": 17,
+      "column": 1,
+      "original_code": "function se23_product ... end se23_product;"
+    },
+    "func_skew": {
+      "file": "SE23UAV.mo",
+      "line": 22,
+      "column": 1,
+      "original_code": "function skew_symmetric ... end skew_symmetric;"
+    },
+    "func_unskew": {
+      "file": "SE23UAV.mo",
+      "line": 27,
+      "column": 1,
+      "original_code": "function unskew ... end unskew;"
+    },
+    "func_vel_transform": {
+      "file": "SE23UAV.mo",
+      "line": 32,
+      "column": 1,
+      "original_code": "function velocity_body_to_world ... end velocity_body_to_world;"
+    },
+    "func_extract_omega": {
+      "file": "SE23UAV.mo",
+      "line": 37,
+      "column": 1,
+      "original_code": "function extract_angular_velocity ... end extract_angular_velocity;"
+    },
+    "func_cross": {
+      "file": "SE23UAV.mo",
+      "line": 42,
+      "column": 1,
+      "original_code": "function cross ... end cross;"
+    },
+    "func_solve": {
+      "file": "SE23UAV.mo",
+      "line": 47,
+      "column": 1,
+      "original_code": "function solve ... end solve;"
+    }
+  },
+  "metadata": {
+    "description": "SE_2(3) UAV dynamics with extended pose representation combining position, orientation, and velocity",
+    "author": "Cyecca Lie Group Example",
+    "base_modelica_compliance": "0.1",
+    "lie_groups": {
+      "SE_2_3": {
+        "description": "Extended Special Euclidean Group - combines SE(3) with linear velocity for underactuated systems",
+        "dimension": 9,
+        "embedding_dimension": 15,
+        "extended_product": {
+          "base_group": "SE3",
+          "velocity_space": "R3"
+        },
+        "charts": {
+          "extended_pose_matrix": {
+            "coordinates": ["X"],
+            "structure": "5×3 matrix [p; R; v]",
+            "constraints": [
+              "R ∈ SO(3): R^T R = I, det(R) = 1",
+              "p, v ∈ R³"
+            ],
+            "description": "Extended pose matrix embedding position, rotation, and velocity"
+          }
+        },
+        "tangent_space": {
+          "name": "se_2_3",
+          "coordinates": ["Omega"],
+          "structure": "5×3 matrix [v_b; ω_skew; a_b]",
+          "description": "Body-frame velocity: linear velocity, angular velocity (skew matrix), linear acceleration",
+          "coordinate_frame": "body"
+        },
+        "applications": {
+          "primary": "Underactuated aerial vehicles (quadrotors, fixed-wing UAVs)",
+          "benefits": [
+            "Natural representation of thrust direction coupling",
+            "Geometric integration preserves group structure",
+            "Avoids coordinate singularities",
+            "Efficient computation using matrix operations"
+          ]
+        }
+      }
+    },
+    "references": [
+      {
+        "title": "Geometric tracking control of a quadrotor UAV on SE(3)",
+        "authors": "Lee, Leok, McClamroch",
+        "year": 2010,
+        "note": "Foundational work on geometric control using SE(3)"
+      },
+      {
+        "title": "Control of Complex Maneuvers for a Quadrotor UAV using Geometric Methods on SE(3)",
+        "authors": "Lee, Leok, McClamroch",
+        "year": 2011,
+        "note": "Extension to aggressive maneuvers"
+      }
+    ],
+    "notes": "Demonstrates SE_2(3) manifold representation for UAV dynamics. The extended configuration space combines position (R³), orientation (SO(3)), and velocity (R³) in a unified matrix representation. This formulation naturally captures the underactuated nature of UAVs where thrust is always aligned with the body z-axis. The dynamics equations are expressed using right-invariant kinematics and body-frame forces/torques, which simplifies control design and provides geometric insight into the system behavior."
+  }
+}
