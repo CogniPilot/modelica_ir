@@ -1,36 +1,122 @@
 # modelica_ir
 
-A neutral intermediate representation (IR) for Modelica-like models, designed for exchanging flattened models between compilers and analysis tools.
+JSON schemas for representing Modelica models as intermediate representations (IR), designed for tool interoperability and code generation.
 
 ## Overview
 
-This repository defines a **JSON schema** for representing flattened Modelica models in a tool-agnostic format. It serves as an interchange format between:
+This repository defines **two complementary JSON schemas** for representing Modelica models:
 
-- **Compilers** (e.g., [Rumoca](https://github.com/jgoppert/rumoca)) - Parse and flatten Modelica source code
-- **Analysis Tools** (e.g., [Cyecca](https://github.com/jgoppert/cyecca)) - Perform symbolic analysis, simulation, reachability analysis
+### 1. Base Modelica IR (`base_modelica_ir-0.1.0`)
+**Simplified, flattened format based on [MCP-0031](https://github.com/modelica/ModelicaSpecification/blob/MCP/0031/RationaleMCP/0031/)**
+
+- ✅ **Compilation target** - Designed for code generation and simulation backends
+- ✅ **Minimal complexity** - Flattened, no connect equations, balanced if-equations only
+- ✅ **DAE-ready** - Clear separation of constants, parameters, and variables
+- ✅ **Extensible** - Supports tool-specific annotations (e.g., Lie groups for manifold-aware solvers)
+- ✅ **Standard-aligned** - Based on emerging Base Modelica standard (MCP-0031)
+
+**Primary use case:** Exchange format between compilers (Rumoca) and backends (Cyecca)
 
 ```
-Modelica source → Rumoca compiler → modelica_ir JSON → Cyecca analysis → Results
+Modelica source → Rumoca compiler → Base Modelica JSON → Cyecca backend → Generated code
 ```
+
+### 2. Full Modelica IR (`modelica_ir-0.2.0`)
+**Comprehensive format following Modelica 3.7 specification**
+
+- ✅ **Feature-complete** - Supports connect equations, unbalanced if-equations, events
+- ✅ **Source-level representation** - Preserves high-level structure
+- ✅ **Analysis-friendly** - Useful for IDE tools, refactoring, documentation generation
+
+**Primary use case:** Internal compiler representation, analysis tools, IDE plugins
+
+## Which Schema Should I Use?
+
+**Use Base Modelica IR (`base_modelica_ir-0.1.0`) if:**
+- You're building a simulation backend or code generator
+- You need maximum tool interoperability
+- You want a simplified, standardized format
+
+**Use Full Modelica IR (`modelica_ir-0.2.0`) if:**
+- You're building analysis tools that need rich structural information
+- You need to represent models before flattening (e.g., compiler intermediate stages)
+- You want comprehensive Modelica 3.7 feature support
+
+**For the Rumoca → Cyecca pipeline:** Use **Base Modelica IR** with Lie group annotations.
+
+See [SCHEMA_SELECTION_GUIDE.md](SCHEMA_SELECTION_GUIDE.md) for detailed comparison.
 
 ## Features
 
-- ✅ **Modelica 3.7 compliant** - Based on the official Modelica specification
-- ✅ **Flattened representation** - Post-elaboration, ready for symbolic processing
-- ✅ **Comprehensive** - Equations, algorithms, events, functions, connections
-- ✅ **Extensible** - Metadata fields for domain-specific annotations (e.g., Lie groups)
+### Base Modelica IR
+- ✅ **MCP-0031 compliant** - Aligned with emerging standard
+- ✅ **Flattened representation** - Post-elaboration, ready for code generation
+- ✅ **Extensible annotations** - Tool-specific metadata support
+- ✅ **Source tracking** - Line/column information for error reporting
 - ✅ **Validated** - JSON Schema for automatic validation
-- ✅ **Tool-agnostic** - Language-neutral JSON format
 
-## Schema Version
+### Full Modelica IR
+- ✅ **Modelica 3.7 compliant** - Based on official specification
+- ✅ **Comprehensive** - Equations, algorithms, events, functions, connections
+- ✅ **Hierarchical references** - Component references like `vehicle.wheels[1].pressure`
+- ✅ **70+ operators** - Full expression language support
+- ✅ **Validated** - JSON Schema for automatic validation
 
-**Current Version:** `0.2.0`
+## Current Versions
+
+- **Base Modelica IR:** `base-0.1.0` (aligned with MCP-0031)
+- **Full Modelica IR:** `0.2.0` (aligned with Modelica 3.7)
 
 See [SCHEMA_CHANGELOG.md](SCHEMA_CHANGELOG.md) for version history and migration guides.
 
 ## Structure
 
-### Top-Level Model
+### Base Modelica IR Structure
+
+```json
+{
+  "ir_version": "base-0.1.0",
+  "base_modelica_version": "0.1",
+  "model_name": "BouncingBall",
+
+  "constants": [
+    {"name": "g", "type": "Real", "value": 9.81, "unit": "m/s^2"}
+  ],
+
+  "parameters": [
+    {"name": "e", "type": "Real", "value": 0.7, "unit": "1"}
+  ],
+
+  "variables": [
+    {"name": "h", "type": "Real", "variability": "continuous"},
+    {"name": "v", "type": "Real", "variability": "continuous"}
+  ],
+
+  "equations": [
+    {"eq_type": "simple", "lhs": {...}, "rhs": {...}},
+    {"eq_type": "when", "condition": {...}, "statements": [...]}
+  ],
+
+  "source_info": {
+    "modelica_version": "3.7",
+    "generated_by": "Rumoca 0.1.0"
+  },
+
+  "metadata": {
+    "lie_groups": {
+      "orientation": {"type": "SO3", "variables": ["q[1]", "q[2]", "q[3]", "q[4]"]}
+    }
+  }
+}
+```
+
+**Key features:**
+- Separate lists for constants, parameters, and variables (DAE-ready)
+- Simpler equation types (no connect, balanced if-equations only)
+- Source tracking for error reporting
+- Extensible metadata for tool-specific annotations
+
+### Full Modelica IR Structure
 
 ```json
 {
@@ -46,6 +132,12 @@ See [SCHEMA_CHANGELOG.md](SCHEMA_CHANGELOG.md) for version history and migration
   "metadata": {...}
 }
 ```
+
+**Key features:**
+- Unified variable list
+- Rich equation types (connect, unbalanced if, events)
+- Algorithm sections with imperative statements
+- Function definitions
 
 ### Variables
 
@@ -304,8 +396,15 @@ Model-level and variable-level metadata for annotations:
 
 See [examples/](examples/) directory:
 
-- [`bouncing_ball_v0.2.json`](examples/bouncing_ball_v0.2.json) - Classic bouncing ball with events
+### Base Modelica IR Examples
+- [`bouncing_ball_base.json`](examples/bouncing_ball_base.json) - Bouncing ball in Base Modelica format (MCP-0031)
+- Demonstrates: constants/parameters/variables separation, when-equations, source tracking
+
+### Full Modelica IR Examples
+- [`bouncing_ball_v0.2.json`](examples/bouncing_ball_v0.2.json) - Bouncing ball in full Modelica IR format
 - [`bouncing_ball.json`](examples/bouncing_ball.json) - Legacy v0.1.0 format
+
+**Recommended:** Use Base Modelica examples as templates for new models.
 
 ## Validation
 
