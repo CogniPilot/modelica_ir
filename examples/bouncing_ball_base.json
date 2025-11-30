@@ -1,0 +1,238 @@
+{
+  "ir_version": "base-0.1.0",
+  "base_modelica_version": "0.1",
+  "model_name": "BouncingBall",
+  "constants": [],
+  "parameters": [
+    {
+      "name": "g",
+      "vartype": "Real",
+      "variability": "parameter",
+      "causality": "local",
+      "shape": [],
+      "start": 9.81,
+      "unit": "m/s2",
+      "comment": "Gravitational acceleration",
+      "source_ref": "var_g"
+    },
+    {
+      "name": "e",
+      "vartype": "Real",
+      "variability": "parameter",
+      "causality": "local",
+      "shape": [],
+      "start": 0.8,
+      "unit": "",
+      "comment": "Coefficient of restitution",
+      "min": 0.0,
+      "max": 1.0,
+      "source_ref": "var_e"
+    }
+  ],
+  "variables": [
+    {
+      "name": "h",
+      "vartype": "Real",
+      "variability": "continuous",
+      "causality": "local",
+      "shape": [],
+      "start": 1.0,
+      "unit": "m",
+      "comment": "Height above ground",
+      "fixed": true,
+      "source_ref": "var_h"
+    },
+    {
+      "name": "v",
+      "vartype": "Real",
+      "variability": "continuous",
+      "causality": "local",
+      "shape": [],
+      "start": 0.0,
+      "unit": "m/s",
+      "comment": "Vertical velocity",
+      "fixed": true,
+      "source_ref": "var_v"
+    }
+  ],
+  "equations": [
+    {
+      "eq_type": "simple",
+      "lhs": {
+        "op": "der",
+        "args": [
+          {
+            "op": "component_ref",
+            "parts": [{"name": "h", "subscripts": []}]
+          }
+        ]
+      },
+      "rhs": {
+        "op": "component_ref",
+        "parts": [{"name": "v", "subscripts": []}]
+      },
+      "source_ref": "eq_001"
+    },
+    {
+      "eq_type": "simple",
+      "lhs": {
+        "op": "der",
+        "args": [
+          {
+            "op": "component_ref",
+            "parts": [{"name": "v", "subscripts": []}]
+          }
+        ]
+      },
+      "rhs": {
+        "op": "neg",
+        "args": [
+          {
+            "op": "component_ref",
+            "parts": [{"name": "g", "subscripts": []}]
+          }
+        ]
+      },
+      "source_ref": "eq_002"
+    },
+    {
+      "eq_type": "when",
+      "branches": [
+        {
+          "condition": {
+            "op": "<",
+            "args": [
+              {
+                "op": "component_ref",
+                "parts": [{"name": "h", "subscripts": []}]
+              },
+              {
+                "op": "literal",
+                "value": 0
+              }
+            ],
+            "source_ref": "cond_001"
+          },
+          "equations": [
+            {
+              "eq_type": "simple",
+              "lhs": {
+                "op": "component_ref",
+                "parts": [{"name": "h", "subscripts": []}]
+              },
+              "rhs": {
+                "op": "literal",
+                "value": 0
+              },
+              "source_ref": "eq_003"
+            },
+            {
+              "eq_type": "simple",
+              "lhs": {
+                "op": "component_ref",
+                "parts": [{"name": "v", "subscripts": []}]
+              },
+              "rhs": {
+                "op": "*",
+                "args": [
+                  {
+                    "op": "neg",
+                    "args": [
+                      {
+                        "op": "component_ref",
+                        "parts": [{"name": "e", "subscripts": []}]
+                      }
+                    ]
+                  },
+                  {
+                    "op": "pre",
+                    "args": [
+                      {
+                        "op": "component_ref",
+                        "parts": [{"name": "v", "subscripts": []}]
+                      }
+                    ]
+                  }
+                ]
+              },
+              "source_ref": "eq_004"
+            }
+          ]
+        }
+      ],
+      "source_ref": "when_001"
+    }
+  ],
+  "initial_equations": [],
+  "algorithms": [],
+  "initial_algorithms": [],
+  "functions": [],
+  "source_info": {
+    "var_g": {
+      "file": "BouncingBall.mo",
+      "line": 3,
+      "column": 3,
+      "original_code": "parameter Real g = 9.81 \"Gravitational acceleration\";"
+    },
+    "var_e": {
+      "file": "BouncingBall.mo",
+      "line": 4,
+      "column": 3,
+      "original_code": "parameter Real e = 0.8 \"Coefficient of restitution\";"
+    },
+    "var_h": {
+      "file": "BouncingBall.mo",
+      "line": 5,
+      "column": 3,
+      "original_code": "Real h(start=1.0, unit=\"m\") \"Height above ground\";"
+    },
+    "var_v": {
+      "file": "BouncingBall.mo",
+      "line": 6,
+      "column": 3,
+      "original_code": "Real v(start=0.0, unit=\"m/s\") \"Vertical velocity\";"
+    },
+    "eq_001": {
+      "file": "BouncingBall.mo",
+      "line": 8,
+      "column": 3,
+      "original_code": "der(h) = v;"
+    },
+    "eq_002": {
+      "file": "BouncingBall.mo",
+      "line": 9,
+      "column": 3,
+      "original_code": "der(v) = -g;"
+    },
+    "cond_001": {
+      "file": "BouncingBall.mo",
+      "line": 11,
+      "column": 8,
+      "original_code": "h < 0"
+    },
+    "eq_003": {
+      "file": "BouncingBall.mo",
+      "line": 12,
+      "column": 5,
+      "original_code": "reinit(h, 0);"
+    },
+    "eq_004": {
+      "file": "BouncingBall.mo",
+      "line": 13,
+      "column": 5,
+      "original_code": "reinit(v, -e*pre(v));"
+    },
+    "when_001": {
+      "file": "BouncingBall.mo",
+      "line": 11,
+      "column": 3,
+      "original_code": "when h < 0 then\n    reinit(h, 0);\n    reinit(v, -e*pre(v));\n  end when;"
+    }
+  },
+  "metadata": {
+    "description": "Classic bouncing ball with inelastic collision - Base Modelica format",
+    "author": "Modelica IR example",
+    "base_modelica_compliance": "0.1",
+    "notes": "Demonstrates when-equations in Base Modelica. Note: reinit statements converted to simple equations within when clause per Base Modelica semantics."
+  }
+}
