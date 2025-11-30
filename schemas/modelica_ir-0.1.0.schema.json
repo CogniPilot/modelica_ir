@@ -1,0 +1,133 @@
+
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Cyecca–Rumoca Exchange IR",
+  "type": "object",
+  "properties": {
+    "ir_version": { "type": "string" },
+    "model_name": { "type": "string" },
+    "variables": { "type": "array", "items": { "$ref": "#/$defs/Variable" } },
+    "equations": { "type": "array", "items": { "$ref": "#/$defs/Equation" } },
+    "algorithms": { "type": "array", "items": { "$ref": "#/$defs/AlgorithmSection" } },
+    "events": { "type": "array", "items": { "$ref": "#/$defs/Event" } },
+    "functions": { "type": "array", "items": { "$ref": "#/$defs/FunctionDef" } },
+    "connections": { "type": "array", "items": { "$ref": "#/$defs/Connection" } },
+    "metadata": { "type": "object", "additionalProperties": true }
+  },
+  "required": ["ir_version", "model_name", "variables", "equations"],
+  "$defs": {
+    "Variable": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "vartype": { "enum": ["Real","Integer","Boolean"] },
+        "kind": { "enum": ["state","algebraic","input","output","parameter","constant","discrete","flow","across"] },
+        "unit": { "type": ["string","null"] },
+        "default": { "type": ["number","string","boolean","null"] },
+        "comment": { "type": ["string","null"] },
+        "shape": { "type": "array", "items": { "type": "integer", "minimum": 1 } }
+      },
+      "required": ["name","vartype","kind","shape"]
+    },
+    "Expr": {
+      "type": "object",
+      "properties": {
+        "op": { "type": "string" },
+        "args": { "type": "array", "items": { "$ref": "#/$defs/Expr" } },
+        "value": { "type": ["number","string","boolean","null"] },
+        "var": { "type": ["string","null"] },
+        "func": { "type": ["string","null"] }
+      },
+      "required": ["op","args"]
+    },
+    "Equation": {
+      "type": "object",
+      "properties": {
+        "lhs": { "$ref": "#/$defs/Expr" },
+        "rhs": { "$ref": "#/$defs/Expr" }
+      },
+      "required": ["lhs","rhs"]
+    },
+    "Assignment": {
+      "type": "object",
+      "properties": {
+        "stmt": { "const": "assign" },
+        "target": { "type": "string" },
+        "expr": { "$ref": "#/$defs/Expr" }
+      },
+      "required": ["stmt","target","expr"]
+    },
+    "IfStatement": {
+      "type": "object",
+      "properties": {
+        "stmt": { "const": "if" },
+        "cond": { "$ref": "#/$defs/Expr" },
+        "then": { "type": "array", "items": { "$ref": "#/$defs/Statement" } },
+        "else": { "type": "array", "items": { "$ref": "#/$defs/Statement" } }
+      },
+      "required": ["stmt","cond","then","else"]
+    },
+    "ForStatement": {
+      "type": "object",
+      "properties": {
+        "stmt": { "const": "for" },
+        "index": { "type": "string" },
+        "range_start": { "$ref": "#/$defs/Expr" },
+        "range_end": { "$ref": "#/$defs/Expr" },
+        "body": { "type": "array", "items": { "$ref": "#/$defs/Statement" } }
+      },
+      "required": ["stmt","index","range_start","range_end","body"]
+    },
+    "ReinitStatement": {
+      "type": "object",
+      "properties": {
+        "stmt": { "const": "reinit" },
+        "target": { "type": "string" },
+        "expr": { "$ref": "#/$defs/Expr" }
+      },
+      "required": ["stmt","target","expr"]
+    },
+    "Statement": {
+      "oneOf": [
+        { "$ref": "#/$defs/Assignment" },
+        { "$ref": "#/$defs/IfStatement" },
+        { "$ref": "#/$defs/ForStatement" },
+        { "$ref": "#/$defs/ReinitStatement" }
+      ]
+    },
+    "AlgorithmSection": {
+      "type": "object",
+      "properties": {
+        "statements": { "type": "array", "items": { "$ref": "#/$defs/Statement" } }
+      },
+      "required": ["statements"]
+    },
+    "Event": {
+      "type": "object",
+      "properties": {
+        "condition": { "$ref": "#/$defs/Expr" },
+        "statements": { "type": "array", "items": { "$ref": "#/$defs/Statement" } },
+        "is_initial": { "type": "boolean" }
+      },
+      "required": ["condition","statements"]
+    },
+    "FunctionDef": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "inputs": { "type": "array", "items": { "$ref": "#/$defs/Variable" } },
+        "outputs": { "type": "array", "items": { "$ref": "#/$defs/Variable" } },
+        "algorithm": { "$ref": "#/$defs/AlgorithmSection" }
+      },
+      "required": ["name","inputs","outputs","algorithm"]
+    },
+    "Connection": {
+      "type": "object",
+      "properties": {
+        "a": { "type": "string" },
+        "b": { "type": "string" }
+      },
+      "required": ["a","b"]
+    }
+  }
+}

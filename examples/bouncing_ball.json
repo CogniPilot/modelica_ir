@@ -1,0 +1,134 @@
+{
+  "ir_version": "0.1.0",
+  "model_name": "BouncingBall",
+  "variables": [
+    {
+      "name": "h",
+      "vartype": "Real",
+      "kind": "state",
+      "shape": [],
+      "default": 1.0
+    },
+    {
+      "name": "v",
+      "vartype": "Real",
+      "kind": "state",
+      "shape": [],
+      "default": 0.0
+    },
+    {
+      "name": "g",
+      "vartype": "Real",
+      "kind": "parameter",
+      "shape": [],
+      "default": 9.81
+    },
+    {
+      "name": "e",
+      "vartype": "Real",
+      "kind": "parameter",
+      "shape": [],
+      "default": 0.8
+    }
+  ],
+  "equations": [
+    {
+      "lhs": {
+        "op": "der",
+        "args": [
+          {
+            "op": "var",
+            "args": [],
+            "var": "h"
+          }
+        ]
+      },
+      "rhs": {
+        "op": "var",
+        "args": [],
+        "var": "v"
+      }
+    },
+    {
+      "lhs": {
+        "op": "der",
+        "args": [
+          {
+            "op": "var",
+            "args": [],
+            "var": "v"
+          }
+        ]
+      },
+      "rhs": {
+        "op": "neg",
+        "args": [
+          {
+            "op": "var",
+            "args": [],
+            "var": "g"
+          }
+        ]
+      }
+    }
+  ],
+  "algorithms": [],
+  "events": [
+    {
+      "condition": {
+        "op": "<",
+        "args": [
+          {
+            "op": "var",
+            "args": [],
+            "var": "h"
+          },
+          {
+            "op": "literal",
+            "args": [],
+            "value": 0
+          }
+        ]
+      },
+      "statements": [
+        {
+          "stmt": "reinit",
+          "target": "h",
+          "expr": {
+            "op": "literal",
+            "args": [],
+            "value": 0
+          }
+        },
+        {
+          "stmt": "reinit",
+          "target": "v",
+          "expr": {
+            "op": "*",
+            "args": [
+              {
+                "op": "neg",
+                "args": [
+                  {
+                    "op": "var",
+                    "args": [],
+                    "var": "e"
+                  }
+                ]
+              },
+              {
+                "op": "var",
+                "args": [],
+                "var": "v"
+              }
+            ]
+          }
+        }
+      ],
+      "is_initial": false
+    }
+  ],
+  "functions": [],
+  "connections": [],
+  "metadata": {}
+}

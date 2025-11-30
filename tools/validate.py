@@ -1,0 +1,1 @@
+print('Schema validation placeholder')
