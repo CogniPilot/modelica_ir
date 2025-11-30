@@ -1,0 +1,498 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cyecca/modelica_ir/schemas/base_modelica_ir-0.1.0.schema.json",
+  "title": "Base Modelica IR",
+  "description": "Intermediate representation aligned with MCP-0031 Base Modelica specification. This is a simplified, normalized form of Modelica focused on simulation semantics, with high-level constructs (connect, conditional components, protected) removed.",
+  "type": "object",
+  "properties": {
+    "ir_version": {
+      "type": "string",
+      "description": "Version of this Base Modelica IR schema",
+      "const": "base-0.1.0"
+    },
+    "base_modelica_version": {
+      "type": "string",
+      "description": "Base Modelica specification version (MCP-0031)",
+      "const": "0.1"
+    },
+    "model_name": {
+      "type": "string",
+      "description": "Fully qualified name of the flattened model"
+    },
+    "constants": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Variable" },
+      "description": "Constant variables (available before types, compile-time evaluation)",
+      "default": []
+    },
+    "parameters": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Variable" },
+      "description": "Parameter variables (fixed after initialization)",
+      "default": []
+    },
+    "variables": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Variable" },
+      "description": "State and algebraic variables (continuous and discrete)"
+    },
+    "equations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Equation" },
+      "description": "Main equation section (declarative)"
+    },
+    "initial_equations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Equation" },
+      "description": "Initial equation section (only holds at t=0)",
+      "default": []
+    },
+    "algorithms": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/AlgorithmSection" },
+      "description": "Algorithm sections (imperative, simplified)",
+      "default": []
+    },
+    "initial_algorithms": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/AlgorithmSection" },
+      "description": "Initial algorithm sections",
+      "default": []
+    },
+    "functions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/FunctionDef" },
+      "description": "Function definitions (user-defined and built-in subset)",
+      "default": []
+    },
+    "source_info": {
+      "type": "object",
+      "description": "Source location mapping for error traceability",
+      "additionalProperties": { "$ref": "#/$defs/SourceLocation" }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Model-level metadata and annotations"
+    }
+  },
+  "required": ["ir_version", "base_modelica_version", "model_name", "variables", "equations"],
+  "$defs": {
+    "Variable": {
+      "type": "object",
+      "description": "Variable declaration (Base Modelica: no protected, no conditional components)",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Fully qualified variable name (flattened hierarchy)"
+        },
+        "vartype": {
+          "enum": ["Real", "Integer", "Boolean", "String"],
+          "description": "Primitive type (no record types in Base Modelica flattened form)"
+        },
+        "variability": {
+          "enum": ["constant", "parameter", "discrete", "continuous"],
+          "description": "Variability (Base Modelica: simplified, no 'fixed' or 'tunable')"
+        },
+        "causality": {
+          "enum": ["input", "output", "local"],
+          "description": "Causality (simplified for Base Modelica)"
+        },
+        "shape": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1 },
+          "description": "Array dimensions ([] = scalar). Base Modelica: single array syntax only",
+          "default": []
+        },
+        "start": {
+          "type": ["number", "string", "boolean", "null"],
+          "description": "Start value for initialization"
+        },
+        "unit": {
+          "type": ["string", "null"],
+          "description": "Physical unit"
+        },
+        "displayUnit": {
+          "type": ["string", "null"],
+          "description": "Display unit"
+        },
+        "min": {
+          "type": ["number", "null"],
+          "description": "Minimum value constraint"
+        },
+        "max": {
+          "type": ["number", "null"],
+          "description": "Maximum value constraint"
+        },
+        "nominal": {
+          "type": ["number", "null"],
+          "description": "Nominal value for scaling"
+        },
+        "fixed": {
+          "type": ["boolean", "null"],
+          "description": "Whether start value is fixed (for initialization)"
+        },
+        "comment": {
+          "type": ["string", "null"],
+          "description": "Documentation string"
+        },
+        "modification_origin": {
+          "type": "string",
+          "description": "Source of modification (for start value prioritization)"
+        },
+        "source_ref": {
+          "type": "string",
+          "description": "Reference to original source location"
+        }
+      },
+      "required": ["name", "vartype", "variability", "shape"]
+    },
+    "ComponentRefPart": {
+      "type": "object",
+      "description": "One part of a hierarchical component reference (flattened in Base Modelica)",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Identifier name"
+        },
+        "subscripts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Expr" },
+          "description": "Array subscripts",
+          "default": []
+        }
+      },
+      "required": ["name"]
+    },
+    "Expr": {
+      "type": "object",
+      "description": "Expression tree (Base Modelica: subscripting on expressions allowed)",
+      "properties": {
+        "op": {
+          "type": "string",
+          "description": "Operator type",
+          "enum": [
+            "literal", "component_ref",
+            "+", "-", "*", "/", "^", "neg", "not",
+            "==", "!=", "<", "<=", ">", ">=",
+            "and", "or",
+            "if",
+            "array", "range",
+            "der", "pre", "edge",
+            "sin", "cos", "tan", "exp", "log", "sqrt", "abs",
+            "min", "max", "sum", "product",
+            "call"
+          ]
+        },
+        "args": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Expr" },
+          "default": []
+        },
+        "value": {
+          "type": ["number", "string", "boolean", "null"],
+          "description": "Literal value (for op='literal')"
+        },
+        "parts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ComponentRefPart" },
+          "description": "Component reference parts (for op='component_ref')"
+        },
+        "func": {
+          "type": ["string", "null"],
+          "description": "Function name (for op='call')"
+        },
+        "source_ref": {
+          "type": "string",
+          "description": "Reference to original source location"
+        }
+      },
+      "required": ["op"]
+    },
+    "SimpleEquation": {
+      "type": "object",
+      "description": "Simple equality equation: lhs = rhs",
+      "properties": {
+        "eq_type": { "const": "simple" },
+        "lhs": { "$ref": "#/$defs/Expr" },
+        "rhs": { "$ref": "#/$defs/Expr" },
+        "source_ref": {
+          "type": "string",
+          "description": "Reference to original source location"
+        }
+      },
+      "required": ["eq_type", "lhs", "rhs"]
+    },
+    "ForEquation": {
+      "type": "object",
+      "description": "For-loop equation (under investigation in Base Modelica 0.1)",
+      "properties": {
+        "eq_type": { "const": "for" },
+        "indices": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "index": { "type": "string" },
+              "range": { "$ref": "#/$defs/Expr" }
+            },
+            "required": ["index", "range"]
+          }
+        },
+        "equations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Equation" }
+        },
+        "source_ref": {
+          "type": "string",
+          "description": "Reference to original source location"
+        }
+      },
+      "required": ["eq_type", "indices", "equations"]
+    },
+    "IfEquation": {
+      "type": "object",
+      "description": "Balanced if-equation (Base Modelica: all branches must define same variables)",
+      "properties": {
+        "eq_type": { "const": "if" },
+        "branches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "condition": { "$ref": "#/$defs/Expr" },
+              "equations": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/Equation" }
+              }
+            },
+            "required": ["condition", "equations"]
+          }
+        },
+        "else_equations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Equation" },
+          "description": "Else branch (required for balanced if in Base Modelica)",
+          "default": []
+        },
+        "source_ref": {
+          "type": "string",
+          "description": "Reference to original source location"
+        }
+      },
+      "required": ["eq_type", "branches", "else_equations"]
+    },
+    "WhenEquation": {
+      "type": "object",
+      "description": "When-equation (Base Modelica: restrictions apply)",
+      "properties": {
+        "eq_type": { "const": "when" },
+        "branches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "condition": { "$ref": "#/$defs/Expr" },
+              "equations": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/Equation" }
+              }
+            },
+            "required": ["condition", "equations"]
+          }
+        },
+        "source_ref": {
+          "type": "string",
+          "description": "Reference to original source location"
+        }
+      },
+      "required": ["eq_type", "branches"]
+    },
+    "Equation": {
+      "description": "Base Modelica equations (no connect, no unbalanced if)",
+      "oneOf": [
+        { "$ref": "#/$defs/SimpleEquation" },
+        { "$ref": "#/$defs/ForEquation" },
+        { "$ref": "#/$defs/IfEquation" },
+        { "$ref": "#/$defs/WhenEquation" }
+      ]
+    },
+    "Assignment": {
+      "type": "object",
+      "description": "Assignment statement: target := expr",
+      "properties": {
+        "stmt": { "const": "assign" },
+        "target": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ComponentRefPart" }
+        },
+        "expr": { "$ref": "#/$defs/Expr" },
+        "source_ref": {
+          "type": "string",
+          "description": "Reference to original source location"
+        }
+      },
+      "required": ["stmt", "target", "expr"]
+    },
+    "IfStatement": {
+      "type": "object",
+      "description": "If statement (simplified in Base Modelica)",
+      "properties": {
+        "stmt": { "const": "if" },
+        "branches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "condition": { "$ref": "#/$defs/Expr" },
+              "statements": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/Statement" }
+              }
+            },
+            "required": ["condition", "statements"]
+          }
+        },
+        "else_statements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Statement" },
+          "default": []
+        },
+        "source_ref": {
+          "type": "string",
+          "description": "Reference to original source location"
+        }
+      },
+      "required": ["stmt", "branches"]
+    },
+    "ForStatement": {
+      "type": "object",
+      "description": "For loop statement",
+      "properties": {
+        "stmt": { "const": "for" },
+        "indices": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "index": { "type": "string" },
+              "range": { "$ref": "#/$defs/Expr" }
+            },
+            "required": ["index", "range"]
+          }
+        },
+        "body": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Statement" }
+        },
+        "source_ref": {
+          "type": "string",
+          "description": "Reference to original source location"
+        }
+      },
+      "required": ["stmt", "indices", "body"]
+    },
+    "WhileStatement": {
+      "type": "object",
+      "description": "While loop statement",
+      "properties": {
+        "stmt": { "const": "while" },
+        "condition": { "$ref": "#/$defs/Expr" },
+        "body": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Statement" }
+        },
+        "source_ref": {
+          "type": "string",
+          "description": "Reference to original source location"
+        }
+      },
+      "required": ["stmt", "condition", "body"]
+    },
+    "BreakStatement": {
+      "type": "object",
+      "properties": {
+        "stmt": { "const": "break" },
+        "source_ref": { "type": "string" }
+      },
+      "required": ["stmt"]
+    },
+    "ReturnStatement": {
+      "type": "object",
+      "properties": {
+        "stmt": { "const": "return" },
+        "source_ref": { "type": "string" }
+      },
+      "required": ["stmt"]
+    },
+    "Statement": {
+      "description": "Base Modelica statements (simplified, no 'each')",
+      "oneOf": [
+        { "$ref": "#/$defs/Assignment" },
+        { "$ref": "#/$defs/IfStatement" },
+        { "$ref": "#/$defs/ForStatement" },
+        { "$ref": "#/$defs/WhileStatement" },
+        { "$ref": "#/$defs/BreakStatement" },
+        { "$ref": "#/$defs/ReturnStatement" }
+      ]
+    },
+    "AlgorithmSection": {
+      "type": "object",
+      "description": "Algorithm section",
+      "properties": {
+        "statements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Statement" }
+        }
+      },
+      "required": ["statements"]
+    },
+    "FunctionDef": {
+      "type": "object",
+      "description": "Function definition (Base Modelica: built-in subset + user-defined)",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Fully qualified function name"
+        },
+        "inputs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Variable" }
+        },
+        "outputs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Variable" }
+        },
+        "protected_vars": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Variable" },
+          "description": "Protected variables (Note: 'protected' removed in Base Modelica classes but allowed in functions)",
+          "default": []
+        },
+        "algorithm": {
+          "$ref": "#/$defs/AlgorithmSection"
+        },
+        "is_pure": {
+          "type": "boolean",
+          "default": true
+        },
+        "source_ref": {
+          "type": "string",
+          "description": "Reference to original source location"
+        }
+      },
+      "required": ["name", "inputs", "outputs", "algorithm"]
+    },
+    "SourceLocation": {
+      "type": "object",
+      "description": "Source location information for error traceability",
+      "properties": {
+        "file": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 },
+        "original_code": { "type": "string" }
+      },
+      "required": ["file", "line"]
+    }
+  }
+}

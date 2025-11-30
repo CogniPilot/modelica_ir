@@ -1,0 +1,188 @@
+{
+  "ir_version": "0.2.0",
+  "model_name": "BouncingBall",
+  "variables": [
+    {
+      "name": "h",
+      "vartype": "Real",
+      "kind": "state",
+      "shape": [],
+      "default": 1.0,
+      "unit": "m",
+      "comment": "Height above ground",
+      "fixed": true
+    },
+    {
+      "name": "v",
+      "vartype": "Real",
+      "kind": "state",
+      "shape": [],
+      "default": 0.0,
+      "unit": "m/s",
+      "comment": "Vertical velocity",
+      "fixed": true
+    },
+    {
+      "name": "g",
+      "vartype": "Real",
+      "kind": "parameter",
+      "shape": [],
+      "default": 9.81,
+      "unit": "m/s2",
+      "comment": "Gravitational acceleration"
+    },
+    {
+      "name": "e",
+      "vartype": "Real",
+      "kind": "parameter",
+      "shape": [],
+      "default": 0.8,
+      "unit": "",
+      "comment": "Coefficient of restitution",
+      "min": 0.0,
+      "max": 1.0
+    }
+  ],
+  "equations": [
+    {
+      "eq_type": "simple",
+      "lhs": {
+        "op": "der",
+        "args": [
+          {
+            "op": "component_ref",
+            "parts": [
+              {
+                "name": "h",
+                "subscripts": []
+              }
+            ]
+          }
+        ]
+      },
+      "rhs": {
+        "op": "component_ref",
+        "parts": [
+          {
+            "name": "v",
+            "subscripts": []
+          }
+        ]
+      }
+    },
+    {
+      "eq_type": "simple",
+      "lhs": {
+        "op": "der",
+        "args": [
+          {
+            "op": "component_ref",
+            "parts": [
+              {
+                "name": "v",
+                "subscripts": []
+              }
+            ]
+          }
+        ]
+      },
+      "rhs": {
+        "op": "neg",
+        "args": [
+          {
+            "op": "component_ref",
+            "parts": [
+              {
+                "name": "g",
+                "subscripts": []
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "initial_equations": [],
+  "algorithms": [],
+  "initial_algorithms": [],
+  "events": [
+    {
+      "condition": {
+        "op": "<",
+        "args": [
+          {
+            "op": "component_ref",
+            "parts": [
+              {
+                "name": "h",
+                "subscripts": []
+              }
+            ]
+          },
+          {
+            "op": "literal",
+            "value": 0
+          }
+        ]
+      },
+      "statements": [
+        {
+          "stmt": "reinit",
+          "target": [
+            {
+              "name": "h",
+              "subscripts": []
+            }
+          ],
+          "expr": {
+            "op": "literal",
+            "value": 0
+          }
+        },
+        {
+          "stmt": "reinit",
+          "target": [
+            {
+              "name": "v",
+              "subscripts": []
+            }
+          ],
+          "expr": {
+            "op": "*",
+            "args": [
+              {
+                "op": "neg",
+                "args": [
+                  {
+                    "op": "component_ref",
+                    "parts": [
+                      {
+                        "name": "e",
+                        "subscripts": []
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "op": "component_ref",
+                "parts": [
+                  {
+                    "name": "v",
+                    "subscripts": []
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "is_initial": false
+    }
+  ],
+  "functions": [],
+  "metadata": {
+    "description": "Classic bouncing ball with inelastic collision",
+    "author": "Modelica IR example"
+  }
+}

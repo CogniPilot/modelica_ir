@@ -1,0 +1,606 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cyecca/modelica_ir/schemas/modelica_ir-0.2.0.schema.json",
+  "title": "Modelica IR - Intermediate Representation for Modelica Models",
+  "description": "A neutral IR for exchanging flattened Modelica models between compilers (Rumoca) and analysis tools (Cyecca). Based on Modelica 3.7 specification.",
+  "type": "object",
+  "properties": {
+    "ir_version": {
+      "type": "string",
+      "description": "Version of this IR schema",
+      "const": "0.2.0"
+    },
+    "model_name": {
+      "type": "string",
+      "description": "Name of the flattened model"
+    },
+    "variables": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Variable" },
+      "description": "All variables in the flattened model"
+    },
+    "equations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Equation" },
+      "description": "Equation section (declarative, acausal)"
+    },
+    "initial_equations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Equation" },
+      "description": "Initial equation section (only holds at t=0)",
+      "default": []
+    },
+    "algorithms": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/AlgorithmSection" },
+      "description": "Algorithm sections (imperative, causal)",
+      "default": []
+    },
+    "initial_algorithms": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/AlgorithmSection" },
+      "description": "Initial algorithm sections",
+      "default": []
+    },
+    "events": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Event" },
+      "description": "When clauses with imperative statements (discrete events)",
+      "default": []
+    },
+    "functions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/FunctionDef" },
+      "description": "Function definitions used in the model",
+      "default": []
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Model-level metadata (Lie groups, annotations, etc.)"
+    }
+  },
+  "required": ["ir_version", "model_name", "variables", "equations"],
+  "$defs": {
+    "Variable": {
+      "type": "object",
+      "description": "A variable declaration in the flattened model",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Fully qualified name (e.g., 'resistor.R', 'x[1]')"
+        },
+        "vartype": {
+          "enum": ["Real", "Integer", "Boolean", "String"],
+          "description": "Primitive type"
+        },
+        "kind": {
+          "enum": [
+            "state",
+            "algebraic",
+            "input",
+            "output",
+            "parameter",
+            "constant",
+            "discrete",
+            "flow",
+            "across",
+            "stream"
+          ],
+          "description": "Variable classification (state/algebraic/input/etc.)"
+        },
+        "unit": {
+          "type": ["string", "null"],
+          "description": "Physical unit (e.g., 'm', 'kg', 'm/s')"
+        },
+        "display_unit": {
+          "type": ["string", "null"],
+          "description": "Display unit for visualization"
+        },
+        "default": {
+          "type": ["number", "string", "boolean", "null"],
+          "description": "Default/start value"
+        },
+        "min": {
+          "type": ["number", "null"],
+          "description": "Minimum value constraint"
+        },
+        "max": {
+          "type": ["number", "null"],
+          "description": "Maximum value constraint"
+        },
+        "nominal": {
+          "type": ["number", "null"],
+          "description": "Nominal value for scaling"
+        },
+        "fixed": {
+          "type": ["boolean", "null"],
+          "description": "Whether initial value is fixed (for states)"
+        },
+        "comment": {
+          "type": ["string", "null"],
+          "description": "Documentation string"
+        },
+        "shape": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1 },
+          "description": "Array dimensions ([] = scalar, [3] = vector, [3,3] = matrix)"
+        },
+        "variability": {
+          "enum": ["constant", "parameter", "discrete", "continuous"],
+          "description": "Variability (how often it can change)"
+        },
+        "causality": {
+          "enum": ["input", "output", "local", "parameter", "independent"],
+          "description": "Causality (FMI terminology)"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Variable-level metadata (Lie group annotations, etc.)"
+        }
+      },
+      "required": ["name", "vartype", "kind", "shape"]
+    },
+    "ComponentRefPart": {
+      "type": "object",
+      "description": "One part of a hierarchical component reference",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Identifier name"
+        },
+        "subscripts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Expr" },
+          "description": "Array subscripts (empty for non-arrays)",
+          "default": []
+        }
+      },
+      "required": ["name"]
+    },
+    "Expr": {
+      "type": "object",
+      "description": "Expression tree node (unified representation)",
+      "properties": {
+        "op": {
+          "type": "string",
+          "description": "Operator/node type",
+          "enum": [
+            "literal", "var", "component_ref",
+            "+", "-", "*", "/", "^", "neg", "not",
+            ".+", ".-", ".*", "./", ".^",
+            "==", "!=", "<", "<=", ">", ">=",
+            "and", "or",
+            "if",
+            "array",
+            "range",
+            "der", "pre", "edge", "change", "initial", "terminal",
+            "sin", "cos", "tan", "asin", "acos", "atan", "atan2",
+            "sinh", "cosh", "tanh",
+            "exp", "log", "log10", "sqrt", "abs", "sign",
+            "min", "max", "sum", "product",
+            "floor", "ceil", "mod", "rem", "div",
+            "call"
+          ]
+        },
+        "args": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Expr" },
+          "description": "Child expressions (operands/arguments)",
+          "default": []
+        },
+        "value": {
+          "type": ["number", "string", "boolean", "null"],
+          "description": "Literal value (for op='literal')"
+        },
+        "var": {
+          "type": ["string", "null"],
+          "description": "Variable name (for op='var', legacy flat reference)"
+        },
+        "parts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ComponentRefPart" },
+          "description": "Hierarchical component reference parts (for op='component_ref')"
+        },
+        "func": {
+          "type": ["string", "null"],
+          "description": "Function name (for op='call')"
+        },
+        "elements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Expr" },
+          "description": "Array elements (for op='array')"
+        }
+      },
+      "required": ["op"],
+      "allOf": [
+        {
+          "if": {
+            "properties": { "op": { "const": "literal" } }
+          },
+          "then": {
+            "required": ["value"]
+          }
+        },
+        {
+          "if": {
+            "properties": { "op": { "const": "var" } }
+          },
+          "then": {
+            "required": ["var"]
+          }
+        },
+        {
+          "if": {
+            "properties": { "op": { "const": "component_ref" } }
+          },
+          "then": {
+            "required": ["parts"]
+          }
+        },
+        {
+          "if": {
+            "properties": { "op": { "const": "call" } }
+          },
+          "then": {
+            "required": ["func", "args"]
+          }
+        },
+        {
+          "if": {
+            "properties": { "op": { "const": "array" } }
+          },
+          "then": {
+            "required": ["elements"]
+          }
+        }
+      ]
+    },
+    "SimpleEquation": {
+      "type": "object",
+      "description": "Simple equality: lhs = rhs (including der(x) = expr)",
+      "properties": {
+        "eq_type": { "const": "simple" },
+        "lhs": { "$ref": "#/$defs/Expr" },
+        "rhs": { "$ref": "#/$defs/Expr" }
+      },
+      "required": ["eq_type", "lhs", "rhs"]
+    },
+    "ForEquation": {
+      "type": "object",
+      "description": "For loop equation: for i in range loop equations end for",
+      "properties": {
+        "eq_type": { "const": "for" },
+        "indices": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "index": { "type": "string" },
+              "range": { "$ref": "#/$defs/Expr" }
+            },
+            "required": ["index", "range"]
+          },
+          "description": "Loop indices and their ranges"
+        },
+        "equations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Equation" },
+          "description": "Equations in loop body"
+        }
+      },
+      "required": ["eq_type", "indices", "equations"]
+    },
+    "IfEquation": {
+      "type": "object",
+      "description": "Conditional equation: if cond then eqs elseif cond then eqs else eqs end if",
+      "properties": {
+        "eq_type": { "const": "if" },
+        "branches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "condition": { "$ref": "#/$defs/Expr" },
+              "equations": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/Equation" }
+              }
+            },
+            "required": ["condition", "equations"]
+          },
+          "description": "If/elseif branches with conditions"
+        },
+        "else_equations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Equation" },
+          "description": "Else branch equations",
+          "default": []
+        }
+      },
+      "required": ["eq_type", "branches"]
+    },
+    "WhenEquation": {
+      "type": "object",
+      "description": "When equation: when cond then equations end when",
+      "properties": {
+        "eq_type": { "const": "when" },
+        "branches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "condition": { "$ref": "#/$defs/Expr" },
+              "equations": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/Equation" }
+              }
+            },
+            "required": ["condition", "equations"]
+          },
+          "description": "When/elsewhen branches"
+        }
+      },
+      "required": ["eq_type", "branches"]
+    },
+    "ConnectEquation": {
+      "type": "object",
+      "description": "Connect equation: connect(a, b)",
+      "properties": {
+        "eq_type": { "const": "connect" },
+        "lhs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ComponentRefPart" },
+          "description": "Left connector reference"
+        },
+        "rhs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ComponentRefPart" },
+          "description": "Right connector reference"
+        }
+      },
+      "required": ["eq_type", "lhs", "rhs"]
+    },
+    "Equation": {
+      "oneOf": [
+        { "$ref": "#/$defs/SimpleEquation" },
+        { "$ref": "#/$defs/ForEquation" },
+        { "$ref": "#/$defs/IfEquation" },
+        { "$ref": "#/$defs/WhenEquation" },
+        { "$ref": "#/$defs/ConnectEquation" }
+      ]
+    },
+    "Assignment": {
+      "type": "object",
+      "description": "Assignment statement: target := expr",
+      "properties": {
+        "stmt": { "const": "assign" },
+        "target": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ComponentRefPart" },
+          "description": "Assignment target (component reference)"
+        },
+        "expr": { "$ref": "#/$defs/Expr" }
+      },
+      "required": ["stmt", "target", "expr"]
+    },
+    "IfStatement": {
+      "type": "object",
+      "description": "If statement: if cond then stmts elseif cond then stmts else stmts end if",
+      "properties": {
+        "stmt": { "const": "if" },
+        "branches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "condition": { "$ref": "#/$defs/Expr" },
+              "statements": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/Statement" }
+              }
+            },
+            "required": ["condition", "statements"]
+          }
+        },
+        "else_statements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Statement" },
+          "default": []
+        }
+      },
+      "required": ["stmt", "branches"]
+    },
+    "ForStatement": {
+      "type": "object",
+      "description": "For loop statement: for i in range loop stmts end for",
+      "properties": {
+        "stmt": { "const": "for" },
+        "indices": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "index": { "type": "string" },
+              "range": { "$ref": "#/$defs/Expr" }
+            },
+            "required": ["index", "range"]
+          }
+        },
+        "body": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Statement" }
+        }
+      },
+      "required": ["stmt", "indices", "body"]
+    },
+    "WhileStatement": {
+      "type": "object",
+      "description": "While loop statement: while cond loop stmts end while",
+      "properties": {
+        "stmt": { "const": "while" },
+        "condition": { "$ref": "#/$defs/Expr" },
+        "body": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Statement" }
+        }
+      },
+      "required": ["stmt", "condition", "body"]
+    },
+    "WhenStatement": {
+      "type": "object",
+      "description": "When statement: when cond then stmts elsewhen cond then stmts end when",
+      "properties": {
+        "stmt": { "const": "when" },
+        "branches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "condition": { "$ref": "#/$defs/Expr" },
+              "statements": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/Statement" }
+              }
+            },
+            "required": ["condition", "statements"]
+          }
+        }
+      },
+      "required": ["stmt", "branches"]
+    },
+    "ReinitStatement": {
+      "type": "object",
+      "description": "Reinit statement: reinit(state, expr)",
+      "properties": {
+        "stmt": { "const": "reinit" },
+        "target": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ComponentRefPart" },
+          "description": "State variable to reinitialize"
+        },
+        "expr": { "$ref": "#/$defs/Expr" }
+      },
+      "required": ["stmt", "target", "expr"]
+    },
+    "BreakStatement": {
+      "type": "object",
+      "description": "Break statement: break",
+      "properties": {
+        "stmt": { "const": "break" }
+      },
+      "required": ["stmt"]
+    },
+    "ReturnStatement": {
+      "type": "object",
+      "description": "Return statement: return",
+      "properties": {
+        "stmt": { "const": "return" }
+      },
+      "required": ["stmt"]
+    },
+    "FunctionCallStatement": {
+      "type": "object",
+      "description": "Function call statement (e.g., assert, terminate, print)",
+      "properties": {
+        "stmt": { "const": "call" },
+        "func": { "type": "string" },
+        "args": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Expr" }
+        }
+      },
+      "required": ["stmt", "func", "args"]
+    },
+    "Statement": {
+      "oneOf": [
+        { "$ref": "#/$defs/Assignment" },
+        { "$ref": "#/$defs/IfStatement" },
+        { "$ref": "#/$defs/ForStatement" },
+        { "$ref": "#/$defs/WhileStatement" },
+        { "$ref": "#/$defs/WhenStatement" },
+        { "$ref": "#/$defs/ReinitStatement" },
+        { "$ref": "#/$defs/BreakStatement" },
+        { "$ref": "#/$defs/ReturnStatement" },
+        { "$ref": "#/$defs/FunctionCallStatement" }
+      ]
+    },
+    "AlgorithmSection": {
+      "type": "object",
+      "description": "Algorithm section (imperative code block)",
+      "properties": {
+        "statements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Statement" }
+        }
+      },
+      "required": ["statements"]
+    },
+    "Event": {
+      "type": "object",
+      "description": "Discrete event (when clause with imperative statements)",
+      "properties": {
+        "condition": { "$ref": "#/$defs/Expr" },
+        "statements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Statement" }
+        },
+        "is_initial": {
+          "type": "boolean",
+          "description": "Whether this event triggers at initialization",
+          "default": false
+        }
+      },
+      "required": ["condition", "statements"]
+    },
+    "FunctionDef": {
+      "type": "object",
+      "description": "Function definition",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Fully qualified function name"
+        },
+        "inputs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Variable" },
+          "description": "Input parameters"
+        },
+        "outputs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Variable" },
+          "description": "Output parameters"
+        },
+        "protected_vars": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Variable" },
+          "description": "Protected local variables",
+          "default": []
+        },
+        "algorithm": {
+          "$ref": "#/$defs/AlgorithmSection",
+          "description": "Function body (algorithm section)"
+        },
+        "is_pure": {
+          "type": "boolean",
+          "description": "Whether function is pure (no side effects)",
+          "default": true
+        },
+        "external": {
+          "type": "object",
+          "description": "External function specification",
+          "properties": {
+            "language": {
+              "type": "string",
+              "enum": ["C", "Fortran 77", "builtin"]
+            },
+            "library": { "type": "string" },
+            "include_directory": { "type": "string" }
+          }
+        }
+      },
+      "required": ["name", "inputs", "outputs"]
+    }
+  }
+}
