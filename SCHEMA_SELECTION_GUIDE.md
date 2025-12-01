@@ -30,18 +30,19 @@ Are you building a simulation backend or code generator?
 
 **Use When:**
 - ✅ Building simulation backends or code generators
-- ✅ Want explicit state/derivative/algebraic classification (no `der()` scanning)
+- ✅ Want explicit state/algebraic classification without inference
 - ✅ Need efficient BLT analysis and structural processing
-- ✅ Want a symbolic format similar to FMI's structure
+- ✅ Want classified variables and equations in structured objects
 - ✅ Targeting ODE/DAE solver integration
 
 **Advantages:**
 - **Explicit DAE structure** matching Modelica Spec Appendix B
-- **State/derivative linkage** - Direct mapping like FMI's derivative attribute
+- **Classified variables** - States, algebraic, discrete, parameters in separate arrays
+- **Classified equations** - Continuous, event, discrete, initial in separate arrays
 - **Event indicators** - Zero-crossing functions for hybrid systems
-- **Structural metadata** - n_states, n_algebraic, dae_index
-- **No inference needed** - Eliminates `der()` scanning in backends
-- **Superset of Base Modelica** - All Base Modelica features plus classification
+- **Structural metadata** - n_states, n_algebraic, n_equations, dae_index, is_ode
+- **State indices** - Each state has `state_index` for direct mapping to solver vectors
+- **Extends Base Modelica** - Same expression syntax, adds classification structure
 
 **Disadvantages:**
 - Requires compiler to perform variable classification
@@ -118,18 +119,19 @@ Are you building a simulation backend or code generator?
 
 | Feature | dae_ir ⭐ | modelica_ir v0.2.0 | base_modelica_ir |
 |---------|-----------|--------------------|--------------------|
-| **Explicit State Classification** | ✅ states/derivatives/algebraic | ❌ Must infer | ❌ Must infer |
-| **State/Derivative Linkage** | ✅ FMI-like | ❌ No | ❌ No |
+| **Explicit State Classification** | ✅ states/algebraic arrays | ❌ Must infer | ❌ Must infer |
+| **State Indices** | ✅ state_index field | ❌ No | ❌ No |
 | **Event Indicators** | ✅ Zero-crossings | ❌ No | ❌ No |
-| **Structural Metadata** | ✅ n_states, dae_index | ❌ No | ❌ No |
-| **Equation Classification** | ✅ continuous/event/discrete | ⚠️ Unified | ⚠️ Unified |
+| **Structural Metadata** | ✅ n_states, n_algebraic, is_ode | ❌ No | ❌ No |
+| **Equation Classification** | ✅ continuous/event/discrete/initial | ⚠️ Unified | ⚠️ Unified |
+| **Derivatives as der(x)** | ✅ Standard syntax | ✅ Standard syntax | ✅ Standard syntax |
 | **Connect Equations** | ❌ Must pre-expand | ✅ ConnectEquation | ❌ Must pre-expand |
 | **If-Equations** | ⚠️ Balanced only | ✅ Balanced + Unbalanced | ⚠️ Balanced only |
 | **When-Equations** | ✅ Full support | ✅ Full support | ✅ Full support |
 | **For-Equations** | ✅ Full support | ✅ Full support | ✅ Full support |
 | **Algorithms** | ✅ 7 statement types | ✅ 9 statement types | ✅ 6 statement types |
 | **Source Tracking** | ✅ Optional | ⚠️ Optional | ✅ Required |
-| **MCP-0031 Compliant** | ⚠️ Superset | ❌ No | ✅ Yes |
+| **Extends Base Modelica** | ✅ Superset | ❌ No | ✅ Reference |
 | **Modelica Spec App B** | ✅ Yes | ❌ No | ❌ No |
 | **Simulation-Ready** | ✅ Direct solver mapping | ❌ Needs processing | ❌ Needs processing |
 
@@ -189,11 +191,12 @@ Legend: ✅ = Fully supported, ⚠️ = Partial/Different, ❌ = Not supported
 **Recommended:** `dae_ir-0.1.0` (DAE IR)
 
 **Why:**
-- Explicit state/derivative/algebraic classification (no `der()` scanning needed)
+- Explicit state/algebraic classification in separate arrays
+- Derivatives written as `der(x)` in equations (standard Modelica syntax)
 - Direct mapping to ODE/DAE solver APIs
 - BLT analysis is more efficient with pre-classified variables
 - Event indicators ready for hybrid simulation
-- Structural metadata (n_states, dae_index) for solver selection
+- Structural metadata (n_states, n_algebraic, is_ode) for solver selection
 
 ---
 
@@ -242,7 +245,8 @@ Legend: ✅ = Fully supported, ⚠️ = Partial/Different, ❌ = Not supported
 **Schema:** `dae_ir-0.1.0` (DAE IR) ⭐
 
 **Reason:**
-- Explicit state/derivative classification eliminates `der()` scanning
+- Explicit state/algebraic classification in separate arrays
+- Derivatives written as `der(x)` in equations (standard Modelica syntax)
 - Direct mapping to ODE/DAE solver APIs (scipy, JAX, etc.)
 - BLT analysis is more efficient with pre-classified variables
 - Event indicators ready for hybrid simulation
@@ -264,16 +268,12 @@ Legend: ✅ = Fully supported, ⚠️ = Partial/Different, ❌ = Not supported
 
 **Primary:** `dae_ir-0.1.0` (DAE IR) ⭐
 - Rumoca performs variable classification during flattening
-- Exports explicit state/derivative/algebraic arrays
+- Exports explicit state/algebraic arrays with state indices
+- Derivatives written as `der(x)` in equations
 - Generates event indicators from when-conditions
-- Usage: `rumoca export --format=dae`
+- Usage: `rumoca model.mo --model=ModelName --json`
 
-**Alternative:** `base_modelica_ir-0.1.0` (Base Modelica)
-- For MCP-0031 compliance requirements
-- Usage: `rumoca export --format=base`
-
-**Option: Export Both**
-- `rumoca export --format=dae,base` exports both formats
+**Note:** Rumoca currently only exports DAE IR format. Base Modelica export is planned for future releases.
 
 ---
 
@@ -283,7 +283,7 @@ Legend: ✅ = Fully supported, ⚠️ = Partial/Different, ❌ = Not supported
 |----------|--------|-----------|
 | **Simulation/Code Generation** ⭐ | dae-0.1.0 | Explicit DAE structure, no inference needed |
 | **Rumoca → Cyecca Pipeline** ⭐ | dae-0.1.0 | Direct solver mapping, efficient BLT |
-| **ODE/DAE Solvers** | dae-0.1.0 | State/derivative linkage, event indicators |
+| **ODE/DAE Solvers** | dae-0.1.0 | State indices, event indicators |
 | **Connector-based models** | v0.2.0 | Preserve connect semantics |
 | **eFMI Equation Code** | base-0.1.0 | Direct compatibility |
 | **Multi-tool exchange** | base-0.1.0 | MCP-0031 compliance |

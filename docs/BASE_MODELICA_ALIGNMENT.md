@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the alignment between our `modelica_ir` schema and the [MCP-0031 Base Modelica specification](https://github.com/modelica/ModelicaSpecification/tree/MCP/0031/RationaleMCP/0031).
+This document describes the alignment between our `modelica_ir` schemas and the [MCP-0031 Base Modelica specification](https://github.com/modelica/ModelicaSpecification/tree/MCP/0031/RationaleMCP/0031).
 
 ## What is Base Modelica?
 
@@ -17,26 +17,51 @@ Base Modelica is an **intermediate language specification** proposed in MCP-0031
 > "Base Modelica is a language to describe hybrid (continuous and discrete) systems with emphasis on defining the dynamic behavior."
 > — MCP-0031 Rationale
 
+## Schema Hierarchy
+
+```
+Base Modelica IR (base_modelica_ir-0.1.0)
+    │
+    │  MCP-0031 compliant
+    │
+    ▼
+DAE IR (dae_ir-0.1.0)  ⭐ Recommended for simulation
+    │
+    │  Extends Base Modelica with:
+    │  - Explicit variable classification
+    │  - Equation classification
+    │  - State indices
+    │  - Event indicators
+    │
+    ▼
+Full Modelica IR (modelica_ir-0.2.0)
+    │
+    │  Adds connector-based features
+    │
+    ▼
+Simulation Backend
+```
+
 ## Schema Variants
 
-We provide **two schema variants**:
+We provide **three schema variants**:
 
-### 1. modelica_ir-0.2.0.schema.json (Full Modelica 3.7)
-**Purpose:** Comprehensive representation of flattened Modelica 3.7 models
+### 1. dae_ir-0.1.0.schema.json (DAE IR) ⭐ Recommended
+**Purpose:** Explicit DAE structure for simulation backends
 
-**Includes:**
-- All equation types (simple, for, if, when, **connect**)
-- Full statement types (including when-statements)
-- Events with imperative statements
-- Connect equations (expanded from connectors)
-- Rich metadata and annotations
-- Full Modelica 3.7 operator set
+**Extends Base Modelica with:**
+- **Classified variables** - `states`, `algebraic`, `discrete_real`, `discrete_valued`, `parameters`, `constants`, `inputs`, `outputs`
+- **Classified equations** - `continuous`, `event`, `discrete_real`, `discrete_valued`, `initial`
+- **State indices** - Each state has `state_index` for direct solver mapping
+- **Event indicators** - Zero-crossing functions for hybrid systems
+- **Structural metadata** - `n_states`, `n_algebraic`, `dae_index`, `is_ode`
+- **Derivatives as `der(x)`** - Standard Modelica syntax in equations
 
 **Use When:**
-- You need to preserve connect semantics
-- Working with connector-based models (electrical, hydraulic, mechanical)
-- Require full Modelica feature set
-- Rumoca is exporting pre-flattening connect information
+- Building simulation backends or code generators
+- Want explicit classification without inference
+- Targeting ODE/DAE solvers (scipy, JAX, etc.)
+- Working with Rumoca → Cyecca pipeline
 
 ### 2. base_modelica_ir-0.1.0.schema.json (MCP-0031 Aligned)
 **Purpose:** Simplified intermediate representation aligned with Base Modelica specification
@@ -61,21 +86,37 @@ We provide **two schema variants**:
 **Use When:**
 - Targeting eFMI Equation Code
 - Need maximum tool interoperability
-- Working with simulation backends that don't need connect semantics
 - Want guaranteed Base Modelica compliance
+
+### 3. modelica_ir-0.2.0.schema.json (Full Modelica 3.7)
+**Purpose:** Comprehensive representation of flattened Modelica 3.7 models
+
+**Includes:**
+- All equation types (simple, for, if, when, **connect**)
+- Full statement types (including when-statements)
+- Events with imperative statements
+- Connect equations (expanded from connectors)
+- Rich metadata and annotations
+- Full Modelica 3.7 operator set
+
+**Use When:**
+- You need to preserve connect semantics
+- Working with connector-based models (electrical, hydraulic, mechanical)
+- Require full Modelica feature set
 
 ## Key Differences
 
-| Feature | Full Modelica IR (v0.2.0) | Base Modelica IR (base-0.1.0) |
-|---------|---------------------------|-------------------------------|
-| **Connect Equations** | ✅ ConnectEquation type | ❌ Not allowed (must be pre-expanded) |
-| **If-Equations** | ✅ Balanced and unbalanced | ✅ Balanced only (else required) |
-| **Protected Members** | ✅ Preserved via metadata | ❌ All members public |
-| **Conditional Components** | ✅ Via metadata | ❌ Not allowed (fixed structure) |
-| **Variables** | One unified list | Separated: constants, parameters, variables |
-| **Variability** | Full set (constant, fixed, tunable, discrete, continuous) | Simplified (constant, parameter, discrete, continuous) |
-| **Source Tracing** | Optional source_ref fields | Required source_info map |
-| **Events** | Separate Event type | Integrated into when-equations |
+| Feature | DAE IR ⭐ | Base Modelica IR | Full Modelica IR |
+|---------|-----------|------------------|------------------|
+| **Variable Classification** | ✅ Explicit (states, algebraic, etc.) | ❌ Must infer | ❌ Must infer |
+| **Equation Classification** | ✅ Explicit (continuous, event, etc.) | ❌ Unified list | ❌ Unified list |
+| **State Indices** | ✅ `state_index` field | ❌ No | ❌ No |
+| **Event Indicators** | ✅ Zero-crossings | ❌ No | ❌ No |
+| **Structural Metadata** | ✅ n_states, is_ode, etc. | ❌ No | ❌ No |
+| **Derivatives** | ✅ `der(x)` in equations | ✅ `der(x)` in equations | ✅ `der(x)` in equations |
+| **Connect Equations** | ❌ Must pre-expand | ❌ Must pre-expand | ✅ ConnectEquation |
+| **If-Equations** | ✅ Balanced only | ✅ Balanced only | ✅ Balanced + unbalanced |
+| **Source Tracing** | ✅ Optional | ✅ Required | ⚠️ Optional |
 
 ## Conversion: Full → Base Modelica
 

@@ -8,7 +8,6 @@
       {
         "name": "h",
         "vartype": "Real",
-        "derivative": "der_h",
         "state_index": 0,
         "start": 1.0,
         "unit": "m",
@@ -17,29 +16,10 @@
       {
         "name": "v",
         "vartype": "Real",
-        "derivative": "der_v",
         "state_index": 1,
         "start": 0.0,
         "unit": "m/s",
         "comment": "Vertical velocity"
-      }
-    ],
-    "derivatives": [
-      {
-        "name": "der_h",
-        "vartype": "Real",
-        "state": "h",
-        "state_index": 0,
-        "unit": "m/s",
-        "comment": "Time derivative of height"
-      },
-      {
-        "name": "der_v",
-        "vartype": "Real",
-        "state": "v",
-        "state_index": 1,
-        "unit": "m/s^2",
-        "comment": "Time derivative of velocity (acceleration)"
       }
     ],
     "algebraic": [
@@ -77,19 +57,19 @@
     "continuous": [
       {
         "eq_type": "simple",
-        "lhs": { "op": "component_ref", "parts": [{"name": "der_h"}] },
-        "rhs": { "op": "component_ref", "parts": [{"name": "v"}] },
+        "lhs": { "op": "der", "args": [{ "op": "var", "name": "h" }] },
+        "rhs": { "op": "var", "name": "v" },
         "source_ref": "eq1"
       },
       {
         "eq_type": "simple",
-        "lhs": { "op": "component_ref", "parts": [{"name": "der_v"}] },
-        "rhs": { "op": "neg", "args": [{ "op": "component_ref", "parts": [{"name": "g"}] }] },
+        "lhs": { "op": "der", "args": [{ "op": "var", "name": "v" }] },
+        "rhs": { "op": "neg", "args": [{ "op": "var", "name": "g" }] },
         "source_ref": "eq2"
       },
       {
         "eq_type": "simple",
-        "lhs": { "op": "component_ref", "parts": [{"name": "z"}] },
+        "lhs": { "op": "var", "name": "z" },
         "rhs": {
           "op": "+",
           "args": [
@@ -97,10 +77,10 @@
               "op": "*",
               "args": [
                 { "op": "literal", "value": 2.0 },
-                { "op": "component_ref", "parts": [{"name": "h"}] }
+                { "op": "var", "name": "h" }
               ]
             },
-            { "op": "component_ref", "parts": [{"name": "v"}] }
+            { "op": "var", "name": "v" }
           ]
         },
         "source_ref": "eq3"
@@ -112,13 +92,13 @@
     "initial": [
       {
         "eq_type": "simple",
-        "lhs": { "op": "component_ref", "parts": [{"name": "h"}] },
+        "lhs": { "op": "var", "name": "h" },
         "rhs": { "op": "literal", "value": 1.0 },
         "source_ref": "init1"
       },
       {
         "eq_type": "simple",
-        "lhs": { "op": "component_ref", "parts": [{"name": "v"}] },
+        "lhs": { "op": "var", "name": "v" },
         "rhs": { "op": "literal", "value": 0.0 },
         "source_ref": "init2"
       }
@@ -128,7 +108,7 @@
   "event_indicators": [
     {
       "name": "ground_contact",
-      "expression": { "op": "component_ref", "parts": [{"name": "h"}] },
+      "expression": { "op": "var", "name": "h" },
       "direction": "falling",
       "source_ref": "when1"
     }
@@ -143,8 +123,8 @@
           "expr": {
             "op": "*",
             "args": [
-              { "op": "neg", "args": [{ "op": "component_ref", "parts": [{"name": "e"}] }] },
-              { "op": "pre", "args": [{ "op": "component_ref", "parts": [{"name": "v"}] }] }
+              { "op": "neg", "args": [{ "op": "var", "name": "e" }] },
+              { "op": "pre", "args": [{ "op": "var", "name": "v" }] }
             ]
           },
           "source_ref": "when1_body"
@@ -177,6 +157,6 @@
   "metadata": {
     "description": "Classic bouncing ball model demonstrating hybrid dynamics",
     "modelica_version": "3.7",
-    "generated_by": "rumoca 0.1.0"
+    "generated_by": "rumoca 0.7.1"
   }
 }

@@ -9,11 +9,11 @@ This repository defines **three complementary JSON schemas** for representing Mo
 ### 1. DAE IR (`dae_ir-0.1.0`) ⭐ Recommended
 **Simulation-ready format with explicit DAE structure matching [Modelica Spec Appendix B](https://specification.modelica.org/master/)**
 
-- ✅ **Explicit variable classification** - States, derivatives, algebraic, discrete (no inference needed)
-- ✅ **FMI-like structure** - Symbolic equivalent of what FMI compiles away
+- ✅ **Explicit variable classification** - States, algebraic, discrete, parameters (no inference needed)
+- ✅ **Extends Base Modelica** - Superset of MCP-0031 with DAE metadata
 - ✅ **Direct solver mapping** - Maps directly to ODE/DAE solver APIs
 - ✅ **Event indicators** - Zero-crossing functions for hybrid systems
-- ✅ **Superset of Base Modelica** - Extends MCP-0031 with DAE metadata
+- ✅ **Derivatives as `der(x)`** - Standard Modelica syntax in equations
 
 **Primary use case:** Efficient simulation, code generation, BLT analysis
 
@@ -48,9 +48,9 @@ Modelica source → Rumoca compiler → Base Modelica JSON → Backend
 
 **Use DAE IR (`dae_ir-0.1.0`) if:** ⭐ Recommended for most cases
 - You're building a simulation backend or code generator
-- You want explicit state/derivative/algebraic classification (no `der()` scanning)
+- You want explicit state/algebraic classification without inference
 - You need efficient BLT analysis and structural processing
-- You want a symbolic format similar to FMI's structure
+- You want classified variables and equations in structured objects
 
 **Use Base Modelica IR (`base_modelica_ir-0.1.0`) if:**
 - You need strict MCP-0031 compliance
@@ -70,10 +70,11 @@ See [SCHEMA_SELECTION_GUIDE.md](SCHEMA_SELECTION_GUIDE.md) for detailed comparis
 
 ### DAE IR ⭐
 - ✅ **Explicit DAE structure** - Matches Modelica Spec Appendix B formalism
-- ✅ **State/derivative linkage** - Direct mapping like FMI's derivative attribute
+- ✅ **Classified variables** - States, algebraic, discrete, parameters in separate arrays
+- ✅ **Classified equations** - Continuous, event, discrete, initial in separate arrays
 - ✅ **Event indicators** - Zero-crossing functions for hybrid systems
-- ✅ **Structural metadata** - n_states, n_algebraic, dae_index
-- ✅ **Superset of Base Modelica** - All Base Modelica features plus classification
+- ✅ **Structural metadata** - n_states, n_algebraic, dae_index, is_ode
+- ✅ **Extends Base Modelica** - All Base Modelica features plus classification
 
 ### Base Modelica IR
 - ✅ **MCP-0031 compliant** - Aligned with emerging standard
@@ -101,6 +102,8 @@ See [SCHEMA_CHANGELOG.md](SCHEMA_CHANGELOG.md) for version history and migration
 
 ### DAE IR Structure ⭐
 
+DAE IR extends Base Modelica by organizing variables and equations into classified objects:
+
 ```json
 {
   "ir_version": "dae-0.1.0",
@@ -109,12 +112,8 @@ See [SCHEMA_CHANGELOG.md](SCHEMA_CHANGELOG.md) for version history and migration
 
   "variables": {
     "states": [
-      {"name": "h", "vartype": "Real", "derivative": "der_h", "start": 1.0, "unit": "m"},
-      {"name": "v", "vartype": "Real", "derivative": "der_v", "start": 0.0, "unit": "m/s"}
-    ],
-    "derivatives": [
-      {"name": "der_h", "vartype": "Real", "state": "h"},
-      {"name": "der_v", "vartype": "Real", "state": "v"}
+      {"name": "h", "vartype": "Real", "state_index": 0, "start": 1.0, "unit": "m"},
+      {"name": "v", "vartype": "Real", "state_index": 1, "start": 0.0, "unit": "m/s"}
     ],
     "algebraic": [
       {"name": "z", "vartype": "Real", "comment": "z = 2*h + v"}
@@ -132,13 +131,13 @@ See [SCHEMA_CHANGELOG.md](SCHEMA_CHANGELOG.md) for version history and migration
 
   "equations": {
     "continuous": [
-      {"eq_type": "simple", "lhs": {"op": "component_ref", "parts": [{"name": "der_h"}]}, "rhs": {...}},
-      {"eq_type": "simple", "lhs": {"op": "component_ref", "parts": [{"name": "der_v"}]}, "rhs": {...}}
+      {"eq_type": "simple", "lhs": {"op": "der", "args": [{"op": "var", "name": "h"}]}, "rhs": {"op": "var", "name": "v"}},
+      {"eq_type": "simple", "lhs": {"op": "der", "args": [{"op": "var", "name": "v"}]}, "rhs": {"op": "neg", "args": [{"op": "var", "name": "g"}]}}
     ],
     "event": [],
     "discrete_real": [],
     "discrete_valued": [],
-    "initial": [...]
+    "initial": []
   },
 
   "event_indicators": [
@@ -148,6 +147,7 @@ See [SCHEMA_CHANGELOG.md](SCHEMA_CHANGELOG.md) for version history and migration
   "structure": {
     "n_states": 2,
     "n_algebraic": 1,
+    "n_equations": 3,
     "dae_index": 0,
     "is_ode": false
   }
@@ -155,12 +155,13 @@ See [SCHEMA_CHANGELOG.md](SCHEMA_CHANGELOG.md) for version history and migration
 ```
 
 **Key features:**
-- **Explicit variable classification** matching Modelica Spec Appendix B (x, der(x), y, z, m, p)
-- **State/derivative linkage** - Each state has a `derivative` field pointing to its derivative
+- **Extends Base Modelica** - Same expression/equation syntax, adds classification structure
+- **Explicit variable classification** matching Modelica Spec Appendix B (x, y, z, m, p)
+- **Derivatives as `der(x)`** - Standard Modelica syntax preserved in equations
 - **Equation classification** - Separate continuous, event, discrete_real, discrete_valued, initial
 - **Event indicators** - Zero-crossing functions similar to FMI's `getEventIndicators()`
-- **Structural metadata** - n_states, n_algebraic, dae_index for direct solver integration
-- **No inference needed** - Eliminates need for `der()` scanning in backends
+- **Structural metadata** - n_states, n_algebraic, n_equations, dae_index, is_ode
+- **State indices** - Each state has a `state_index` for direct mapping to solver vectors
 
 ### Base Modelica IR Structure
 

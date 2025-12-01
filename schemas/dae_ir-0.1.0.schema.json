@@ -27,13 +27,7 @@
         "states": {
           "type": "array",
           "items": { "$ref": "#/$defs/StateVariable" },
-          "description": "x: Continuous-time variables appearing differentiated (have der(x) in equations)",
-          "default": []
-        },
-        "derivatives": {
-          "type": "array",
-          "items": { "$ref": "#/$defs/DerivativeVariable" },
-          "description": "der(x): Time derivatives of state variables, explicitly linked to their state",
+          "description": "x: Continuous-time variables appearing differentiated. Derivatives are represented as der(x) function calls in equations.",
           "default": []
         },
         "algebraic": {
@@ -79,7 +73,7 @@
           "default": []
         }
       },
-      "required": ["states", "derivatives", "algebraic", "parameters"]
+      "required": ["states", "algebraic", "parameters"]
     },
 
     "equations": {
@@ -251,38 +245,16 @@
 
     "StateVariable": {
       "type": "object",
-      "description": "Continuous state variable with explicit derivative linkage",
+      "description": "Continuous state variable. Derivatives appear as der(state_name) in equations.",
       "allOf": [{ "$ref": "#/$defs/Variable" }],
       "properties": {
-        "derivative": {
-          "type": "string",
-          "description": "Name of the corresponding derivative variable (der_x for state x)"
-        },
         "state_index": {
           "type": "integer",
           "description": "Index in the state vector (for code generation)",
           "minimum": 0
         }
       },
-      "required": ["name", "vartype", "derivative"]
-    },
-
-    "DerivativeVariable": {
-      "type": "object",
-      "description": "Derivative variable with explicit state linkage (like FMI derivative attribute)",
-      "allOf": [{ "$ref": "#/$defs/Variable" }],
-      "properties": {
-        "state": {
-          "type": "string",
-          "description": "Name of the corresponding state variable this is the derivative of"
-        },
-        "state_index": {
-          "type": "integer",
-          "description": "Index of the state in the state vector",
-          "minimum": 0
-        }
-      },
-      "required": ["name", "vartype", "state"]
+      "required": ["name", "vartype"]
     },
 
     "EventIndicator": {
