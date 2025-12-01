@@ -1,602 +1,75 @@
 # modelica_ir
 
-JSON schemas for representing Modelica models as intermediate representations (IR), designed for tool interoperability and code generation.
+JSON schemas for Modelica intermediate representations.
 
-## Overview
+## Schemas
 
-This repository defines **three complementary JSON schemas** for representing Modelica models:
+| Schema | Description | Use Case |
+|--------|-------------|----------|
+| **Explicit IR** | Causal ODE: `dx/dt = f(x,u,p)` | Real-time code generation, embedded systems |
+| **DAE IR** | Implicit DAE with classified variables | Simulation with DAE solvers, analysis |
+| **Base Modelica IR** | MCP-0031 compliant flat format | Tool interoperability |
+| **Full Modelica IR** | Complete Modelica 3.7 representation | IDE tools, analysis |
 
-### 1. DAE IR (`dae_ir-0.1.0`) ⭐ Recommended
-**Simulation-ready format with explicit DAE structure matching [Modelica Spec Appendix B](https://specification.modelica.org/master/)**
-
-- ✅ **Explicit variable classification** - States, algebraic, discrete, parameters (no inference needed)
-- ✅ **Extends Base Modelica** - Superset of MCP-0031 with DAE metadata
-- ✅ **Direct solver mapping** - Maps directly to ODE/DAE solver APIs
-- ✅ **Event indicators** - Zero-crossing functions for hybrid systems
-- ✅ **Derivatives as `der(x)`** - Standard Modelica syntax in equations
-
-**Primary use case:** Efficient simulation, code generation, BLT analysis
+## Pipeline
 
 ```
-Modelica source → Rumoca compiler → DAE IR JSON → Cyecca/Solver → Simulation
+Modelica source → Rumoca → Explicit IR (causal) or DAE IR (implicit) → Cyecca/Solver
 ```
 
-### 2. Base Modelica IR (`base_modelica_ir-0.1.0`)
-**Simplified, flattened format based on [MCP-0031](https://github.com/modelica/ModelicaSpecification/blob/MCP/0031/RationaleMCP/0031/)**
+- **Explicit IR**: Result of BLT + causalization. No algebraic loops. Ready for C code generation.
+- **DAE IR**: Implicit models with algebraic constraints. Requires DAE solver.
 
-- ✅ **Compilation target** - Designed for code generation and simulation backends
-- ✅ **Minimal complexity** - Flattened, no connect equations, balanced if-equations only
-- ✅ **Extensible** - Supports tool-specific annotations (e.g., Lie groups for manifold-aware solvers)
-- ✅ **Standard-aligned** - Based on emerging Base Modelica standard (MCP-0031)
+## Explicit IR Example
 
-**Primary use case:** Tool interoperability, MCP-0031 compliance
-
+```json
+{
+  "ir_version": "explicit-0.1.0",
+  "model_name": "MassSpring",
+  "states": [
+    {"name": "x", "index": 0, "start": 1.0},
+    {"name": "v", "index": 1, "start": 0.0}
+  ],
+  "parameters": [
+    {"name": "k", "index": 0, "value": 1.0}
+  ],
+  "derivatives": [
+    {"state_index": 0, "expr": {"op": "state_ref", "ref_index": 1}},
+    {"state_index": 1, "expr": {"op": "*", "args": [{"op": "literal", "value": -1}, {"op": "param_ref", "ref_index": 0}, {"op": "state_ref", "ref_index": 0}]}}
+  ]
+}
 ```
-Modelica source → Rumoca compiler → Base Modelica JSON → Backend
-```
 
-### 3. Full Modelica IR (`modelica_ir-0.2.0`)
-**Comprehensive format following Modelica 3.7 specification**
-
-- ✅ **Feature-complete** - Supports connect equations, unbalanced if-equations, events
-- ✅ **Source-level representation** - Preserves high-level structure
-- ✅ **Analysis-friendly** - Useful for IDE tools, refactoring, documentation generation
-
-**Primary use case:** Internal compiler representation, analysis tools, IDE plugins
-
-## Which Schema Should I Use?
-
-**Use DAE IR (`dae_ir-0.1.0`) if:** ⭐ Recommended for most cases
-- You're building a simulation backend or code generator
-- You want explicit state/algebraic classification without inference
-- You need efficient BLT analysis and structural processing
-- You want classified variables and equations in structured objects
-
-**Use Base Modelica IR (`base_modelica_ir-0.1.0`) if:**
-- You need strict MCP-0031 compliance
-- You're exchanging models with tools that only support Base Modelica
-- You don't need explicit variable classification
-
-**Use Full Modelica IR (`modelica_ir-0.2.0`) if:**
-- You're building analysis tools that need rich structural information
-- You need to represent models before flattening (e.g., compiler intermediate stages)
-- You want comprehensive Modelica 3.7 feature support
-
-**For the Rumoca → Cyecca pipeline:** Use **DAE IR** for best performance.
-
-See [SCHEMA_SELECTION_GUIDE.md](SCHEMA_SELECTION_GUIDE.md) for detailed comparison.
-
-## Features
-
-### DAE IR ⭐
-- ✅ **Explicit DAE structure** - Matches Modelica Spec Appendix B formalism
-- ✅ **Classified variables** - States, algebraic, discrete, parameters in separate arrays
-- ✅ **Classified equations** - Continuous, event, discrete, initial in separate arrays
-- ✅ **Event indicators** - Zero-crossing functions for hybrid systems
-- ✅ **Structural metadata** - n_states, n_algebraic, dae_index, is_ode
-- ✅ **Extends Base Modelica** - All Base Modelica features plus classification
-
-### Base Modelica IR
-- ✅ **MCP-0031 compliant** - Aligned with emerging standard
-- ✅ **Flattened representation** - Post-elaboration, ready for code generation
-- ✅ **Extensible annotations** - Tool-specific metadata support
-- ✅ **Source tracking** - Line/column information for error reporting
-- ✅ **Validated** - JSON Schema for automatic validation
-
-### Full Modelica IR
-- ✅ **Modelica 3.7 compliant** - Based on official specification
-- ✅ **Comprehensive** - Equations, algorithms, events, functions, connections
-- ✅ **Hierarchical references** - Component references like `vehicle.wheels[1].pressure`
-- ✅ **70+ operators** - Full expression language support
-- ✅ **Validated** - JSON Schema for automatic validation
-
-## Current Versions
-
-- **DAE IR:** `dae-0.1.0` (Modelica Spec Appendix B DAE formalism) ⭐
-- **Base Modelica IR:** `base-0.1.0` (aligned with MCP-0031)
-- **Full Modelica IR:** `0.2.0` (aligned with Modelica 3.7)
-
-See [SCHEMA_CHANGELOG.md](SCHEMA_CHANGELOG.md) for version history and migration guides.
-
-## Structure
-
-### DAE IR Structure ⭐
-
-DAE IR extends Base Modelica by organizing variables and equations into classified objects:
+## DAE IR Example
 
 ```json
 {
   "ir_version": "dae-0.1.0",
-  "base_modelica_version": "0.1",
   "model_name": "BouncingBall",
-
   "variables": {
-    "states": [
-      {"name": "h", "vartype": "Real", "state_index": 0, "start": 1.0, "unit": "m"},
-      {"name": "v", "vartype": "Real", "state_index": 1, "start": 0.0, "unit": "m/s"}
-    ],
-    "algebraic": [
-      {"name": "z", "vartype": "Real", "comment": "z = 2*h + v"}
-    ],
-    "discrete_real": [],
-    "discrete_valued": [],
-    "parameters": [
-      {"name": "e", "vartype": "Real", "start": 0.8},
-      {"name": "g", "vartype": "Real", "start": 9.81, "unit": "m/s^2"}
-    ],
-    "constants": [],
-    "inputs": [],
-    "outputs": []
+    "states": [{"name": "h", "state_index": 0, "start": 1.0}],
+    "algebraic": [],
+    "parameters": [{"name": "g", "start": 9.81}]
   },
-
   "equations": {
     "continuous": [
-      {"eq_type": "simple", "lhs": {"op": "der", "args": [{"op": "var", "name": "h"}]}, "rhs": {"op": "var", "name": "v"}},
-      {"eq_type": "simple", "lhs": {"op": "der", "args": [{"op": "var", "name": "v"}]}, "rhs": {"op": "neg", "args": [{"op": "var", "name": "g"}]}}
-    ],
-    "event": [],
-    "discrete_real": [],
-    "discrete_valued": [],
-    "initial": []
-  },
-
-  "event_indicators": [
-    {"name": "ground_contact", "expression": {...}, "direction": "falling"}
-  ],
-
-  "structure": {
-    "n_states": 2,
-    "n_algebraic": 1,
-    "n_equations": 3,
-    "dae_index": 0,
-    "is_ode": false
-  }
-}
-```
-
-**Key features:**
-- **Extends Base Modelica** - Same expression/equation syntax, adds classification structure
-- **Explicit variable classification** matching Modelica Spec Appendix B (x, y, z, m, p)
-- **Derivatives as `der(x)`** - Standard Modelica syntax preserved in equations
-- **Equation classification** - Separate continuous, event, discrete_real, discrete_valued, initial
-- **Event indicators** - Zero-crossing functions similar to FMI's `getEventIndicators()`
-- **Structural metadata** - n_states, n_algebraic, n_equations, dae_index, is_ode
-- **State indices** - Each state has a `state_index` for direct mapping to solver vectors
-
-### Base Modelica IR Structure
-
-```json
-{
-  "ir_version": "base-0.1.0",
-  "base_modelica_version": "0.1",
-  "model_name": "BouncingBall",
-
-  "constants": [
-    {"name": "g", "type": "Real", "value": 9.81, "unit": "m/s^2"}
-  ],
-
-  "parameters": [
-    {"name": "e", "type": "Real", "value": 0.7, "unit": "1"}
-  ],
-
-  "variables": [
-    {"name": "h", "type": "Real", "variability": "continuous"},
-    {"name": "v", "type": "Real", "variability": "continuous"}
-  ],
-
-  "equations": [
-    {"eq_type": "simple", "lhs": {...}, "rhs": {...}},
-    {"eq_type": "when", "condition": {...}, "statements": [...]}
-  ],
-
-  "source_info": {
-    "modelica_version": "3.7",
-    "generated_by": "Rumoca 0.1.0"
-  },
-
-  "metadata": {
-    "lie_groups": {
-      "orientation": {"type": "SO3", "variables": ["q[1]", "q[2]", "q[3]", "q[4]"]}
-    }
-  }
-}
-```
-
-**Key features:**
-- Separate lists for constants, parameters, and variables
-- Simpler equation types (no connect, balanced if-equations only)
-- Source tracking for error reporting
-- Extensible metadata for tool-specific annotations
-- **Requires inference** - Backend must scan equations for `der()` to identify states
-
-### Full Modelica IR Structure
-
-```json
-{
-  "ir_version": "0.2.0",
-  "model_name": "MyModel",
-  "variables": [...],
-  "equations": [...],
-  "initial_equations": [...],
-  "algorithms": [...],
-  "initial_algorithms": [...],
-  "events": [...],
-  "functions": [...],
-  "metadata": {...}
-}
-```
-
-**Key features:**
-- Unified variable list
-- Rich equation types (connect, unbalanced if, events)
-- Algorithm sections with imperative statements
-- Function definitions
-
-### Variables
-
-Variables are fully qualified with type, kind, attributes, and optional metadata:
-
-```json
-{
-  "name": "vehicle.position.x",
-  "vartype": "Real",
-  "kind": "state",
-  "shape": [],
-  "unit": "m",
-  "comment": "X position in inertial frame",
-  "default": 0.0,
-  "min": null,
-  "max": null,
-  "nominal": 1.0,
-  "fixed": true
-}
-```
-
-**Variable kinds:**
-- `state` - Continuous state variable (has derivative)
-- `algebraic` - Algebraic variable
-- `input` - External input
-- `output` - Output variable
-- `parameter` - Fixed parameter
-- `constant` - Compile-time constant
-- `discrete` - Discrete state (changes only at events)
-- `flow` - Flow variable (for connectors)
-- `across` - Across variable (for connectors)
-- `stream` - Stream variable (for transport)
-
-### Equations
-
-Equations are discriminated by `eq_type`:
-
-#### Simple Equation
-```json
-{
-  "eq_type": "simple",
-  "lhs": {
-    "op": "der",
-    "args": [{"op": "component_ref", "parts": [{"name": "x"}]}]
-  },
-  "rhs": {
-    "op": "component_ref",
-    "parts": [{"name": "v"}]
-  }
-}
-```
-
-#### For-Equation
-```json
-{
-  "eq_type": "for",
-  "indices": [
-    {
-      "index": "i",
-      "range": {"op": "range", "args": [...]}
-    }
-  ],
-  "equations": [...]
-}
-```
-
-#### If-Equation
-```json
-{
-  "eq_type": "if",
-  "branches": [
-    {
-      "condition": {...},
-      "equations": [...]
-    }
-  ],
-  "else_equations": [...]
-}
-```
-
-#### When-Equation
-```json
-{
-  "eq_type": "when",
-  "branches": [
-    {
-      "condition": {"op": "edge", "args": [...]},
-      "equations": [...]
-    }
-  ]
-}
-```
-
-#### Connect-Equation
-```json
-{
-  "eq_type": "connect",
-  "lhs": [{"name": "resistor", "subscripts": []}, {"name": "p"}],
-  "rhs": [{"name": "capacitor", "subscripts": []}, {"name": "n"}]
-}
-```
-
-### Expressions
-
-Expressions use a unified tree structure with an `op` field:
-
-```json
-{
-  "op": "operator_name",
-  "args": [...]
-}
-```
-
-**Operators:**
-- **Literals:** `"literal"` (with `value` field)
-- **References:** `"component_ref"` (with `parts` array), `"var"` (deprecated)
-- **Arithmetic:** `"+"`, `"-"`, `"*"`, `"/"`, `"^"`, `"neg"`
-- **Element-wise:** `".+"`, `".-"`, `".*"`, `"./"`, `".^"`
-- **Comparison:** `"=="`, `"!="`, `"<"`, `"<="`, `">"`, `">="`
-- **Logical:** `"and"`, `"or"`, `"not"`
-- **Conditional:** `"if"` (ternary)
-- **Modelica operators:** `"der"`, `"pre"`, `"edge"`, `"change"`, `"initial"`, `"terminal"`
-- **Math functions:** `"sin"`, `"cos"`, `"exp"`, `"log"`, `"sqrt"`, `"abs"`, etc.
-- **Array:** `"array"`, `"range"`, `"min"`, `"max"`, `"sum"`, `"product"`
-- **Function call:** `"call"` (with `func` and `args`)
-
-**Example - Hierarchical Component Reference:**
-```json
-{
-  "op": "component_ref",
-  "parts": [
-    {"name": "vehicle", "subscripts": []},
-    {"name": "wheels", "subscripts": [{"op": "literal", "value": 1}]},
-    {"name": "pressure", "subscripts": []}
-  ]
-}
-```
-Represents: `vehicle.wheels[1].pressure`
-
-### Algorithms
-
-Algorithm sections contain imperative statements:
-
-```json
-{
-  "statements": [
-    {
-      "stmt": "assign",
-      "target": [{"name": "sum"}],
-      "expr": {"op": "literal", "value": 0}
-    },
-    {
-      "stmt": "for",
-      "indices": [{"index": "i", "range": {...}}],
-      "body": [...]
-    },
-    {
-      "stmt": "if",
-      "branches": [
-        {
-          "condition": {...},
-          "statements": [...]
-        }
-      ]
-    }
-  ]
-}
-```
-
-**Statement types:**
-- `assign` - Assignment: `target := expr`
-- `if` - Conditional statement
-- `for` - For loop
-- `while` - While loop
-- `when` - When statement
-- `reinit` - Reinitialize state variable
-- `break` - Break from loop
-- `return` - Return from function
-- `call` - Function call statement (assert, terminate, etc.)
-
-### Events
-
-Events represent discrete state changes triggered by conditions:
-
-```json
-{
-  "condition": {
-    "op": "<",
-    "args": [
-      {"op": "component_ref", "parts": [{"name": "h"}]},
-      {"op": "literal", "value": 0}
+      {"eq_type": "simple", "lhs": {"op": "der", "args": [{"op": "component_ref", "parts": [{"name": "h"}]}]}, "rhs": {"op": "component_ref", "parts": [{"name": "v"}]}}
     ]
-  },
-  "statements": [
-    {
-      "stmt": "reinit",
-      "target": [{"name": "v"}],
-      "expr": {...}
-    }
-  ],
-  "is_initial": false
-}
-```
-
-### Functions
-
-Function definitions include inputs, outputs, and algorithm body:
-
-```json
-{
-  "name": "myFunction",
-  "inputs": [
-    {"name": "x", "vartype": "Real", "kind": "input", "shape": []}
-  ],
-  "outputs": [
-    {"name": "y", "vartype": "Real", "kind": "output", "shape": []}
-  ],
-  "protected_vars": [],
-  "algorithm": {
-    "statements": [...]
-  },
-  "is_pure": true
-}
-```
-
-### Metadata
-
-Model-level and variable-level metadata for annotations:
-
-**Model metadata:**
-```json
-{
-  "metadata": {
-    "description": "Quadrotor model with SE(2,3) structure",
-    "lie_structure": "SE23",
-    "formulation": "mixed_invariant"
   }
 }
 ```
-
-**Variable metadata:**
-```json
-{
-  "name": "q",
-  "vartype": "Real",
-  "kind": "state",
-  "shape": [4],
-  "metadata": {
-    "lie_group": "SO3",
-    "chart": "quaternion"
-  }
-}
-```
-
-## Examples
-
-See [examples/](examples/) directory:
-
-### DAE IR Examples ⭐
-
-- [bouncing_ball_dae.json](examples/bouncing_ball_dae.json) - Bouncing ball with explicit DAE structure
-  - Demonstrates: state/derivative linkage, event indicators, structural metadata, equation classification
-
-**Recommended:** Use DAE IR examples as templates for simulation-ready models.
-
-### Base Modelica IR Examples
-
-**Basic Examples:**
-- [bouncing_ball_base.json](examples/bouncing_ball_base.json) - Bouncing ball in Base Modelica format (MCP-0031)
-  - Demonstrates: constants/parameters/variables separation, when-equations, source tracking
-
-**Lie Group Examples (Manifold-Aware Dynamics):**
-- [so3_quaternion_base.json](examples/so3_quaternion_base.json) - SO(3) rotation using quaternions
-  - Demonstrates: attitude dynamics, quaternion kinematics, Lie group annotations
-- [se3_rigid_body_base.json](examples/se3_rigid_body_base.json) - SE(3) rigid body dynamics
-  - Demonstrates: 6-DOF pose representation, Newton-Euler equations on manifolds
-- [se23_uav_base.json](examples/se23_uav_base.json) - SE_2(3) UAV dynamics
-  - Demonstrates: extended pose for underactuated systems, geometric control
-
-See [docs/LIE_GROUP_ANNOTATIONS.md](docs/LIE_GROUP_ANNOTATIONS.md) for comprehensive guide on Lie group annotations.
-
-### Full Modelica IR Examples
-- [bouncing_ball_v0.2.json](examples/bouncing_ball_v0.2.json) - Bouncing ball in full Modelica IR format
-- [bouncing_ball.json](examples/bouncing_ball.json) - Legacy v0.1.0 format
 
 ## Validation
 
-Validate JSON files against the schema using the provided Python tool:
-
 ```bash
-cd modelica_ir
-python tools/validate.py examples/bouncing_ball_v0.2.json
+python tools/validate.py examples/bouncing_ball_dae.json
 ```
 
-Or use any JSON Schema validator:
+## Related Projects
 
-```python
-import json
-import jsonschema
-
-with open('schemas/modelica_ir-0.2.0.schema.json') as f:
-    schema = json.load(f)
-
-with open('examples/bouncing_ball_v0.2.json') as f:
-    model = json.load(f)
-
-jsonschema.validate(model, schema)
-print("✓ Valid!")
-```
-
-## Documentation
-
-- [Lie Group Annotations Guide](docs/LIE_GROUP_ANNOTATIONS.md) - Complete guide to manifold-aware modeling with SO(3), SE(3), SE_2(3)
-- [Cyecca Integration](docs/integration_guides/cyecca.md) - Importing modelica_ir into Cyecca
-- [Rumoca Integration](docs/integration_guides/rumoca.md) - Exporting from Rumoca to modelica_ir
-- [Schema Selection Guide](SCHEMA_SELECTION_GUIDE.md) - Choosing between Base Modelica and Full Modelica IR
-
-## Design Principles
-
-1. **Flat and Simple** - Represents post-elaboration models, no class hierarchy
-2. **Complete** - Captures all information needed for symbolic analysis and simulation
-3. **Validated** - JSON Schema ensures conformance
-4. **Extensible** - Metadata fields allow domain-specific extensions
-5. **Tool-Neutral** - No assumptions about backend implementation
-
-## Comparison to Other Formats
-
-### vs. FMI (Functional Mock-up Interface)
-- **FMI:** Binary C interface for co-simulation, XML model description
-- **modelica_ir:** Symbolic representation for static analysis and transformation
-- **Use together:** modelica_ir for analysis, FMI for runtime simulation
-
-### vs. Modelica Source Code
-- **Modelica:** High-level, hierarchical, object-oriented
-- **modelica_ir:** Flat, explicit, ready for symbolic processing
-- **Pipeline:** Modelica → (compiler) → modelica_ir
-
-### vs. MathML / SymPy
-- **MathML/SymPy:** General mathematical expressions
-- **modelica_ir:** Domain-specific for DAE systems with discrete events
-- **Richer:** Includes variables, equations, algorithms, events, functions
-
-## Roadmap
-
-- [ ] Add support for external objects
-- [ ] Add support for synchronous features (clocked equations)
-- [ ] Add support for partial derivatives annotations
-- [ ] Consider adding simplified "canonical form" variant (ODE/DAE only)
-- [ ] Add more comprehensive examples (electrical, mechanical, fluid systems)
-
-## Contributing
-
-Issues and pull requests welcome! Please ensure:
-
-1. JSON examples validate against schema
-2. Documentation is updated for schema changes
-3. Version number is bumped for breaking changes
-4. Changelog is updated
+- [Rumoca](https://github.com/CogniPilot/rumoca) - Modelica compiler (produces these IRs)
+- [Cyecca](https://github.com/CogniPilot/cyecca) - Simulation/analysis tool (consumes these IRs)
 
 ## License
 
 See [LICENSE](LICENSE)
-
-## References
-
-- [Modelica Specification 3.7](https://specification.modelica.org/master/)
-- [Rumoca Compiler](https://github.com/jgoppert/rumoca)
-- [Cyecca Analysis Tool](https://github.com/jgoppert/cyecca)
-- [JSON Schema Specification](https://json-schema.org/)

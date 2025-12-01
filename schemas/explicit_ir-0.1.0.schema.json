@@ -1,0 +1,416 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cyecca/modelica_ir/schemas/explicit_ir-0.1.0.schema.json",
+  "title": "Explicit IR",
+  "description": "Explicit (causal) ODE Intermediate Representation. Represents fully causalized models where all equations have been sorted and solved: dx/dt = f(x, u, p). This format is the output of BLT transformation and causalization, ready for direct code generation and real-time simulation. No algebraic loops remain - all dependencies are resolved.",
+  "type": "object",
+  "properties": {
+    "ir_version": {
+      "type": "string",
+      "description": "Version of this Explicit IR schema",
+      "const": "explicit-0.1.0"
+    },
+    "model_name": {
+      "type": "string",
+      "description": "Fully qualified name of the model"
+    },
+
+    "states": {
+      "type": "array",
+      "description": "x: Continuous state variables with explicit indices for vector ordering",
+      "items": { "$ref": "#/$defs/StateVariable" },
+      "default": []
+    },
+
+    "inputs": {
+      "type": "array",
+      "description": "u: External input signals",
+      "items": { "$ref": "#/$defs/Variable" },
+      "default": []
+    },
+
+    "outputs": {
+      "type": "array",
+      "description": "Output variables (computed from states/inputs/parameters)",
+      "items": { "$ref": "#/$defs/OutputVariable" },
+      "default": []
+    },
+
+    "parameters": {
+      "type": "array",
+      "description": "p: Parameter variables (fixed after initialization)",
+      "items": { "$ref": "#/$defs/Parameter" },
+      "default": []
+    },
+
+    "constants": {
+      "type": "array",
+      "description": "Compile-time constant values",
+      "items": { "$ref": "#/$defs/Constant" },
+      "default": []
+    },
+
+    "derivatives": {
+      "type": "array",
+      "description": "Explicit derivative expressions: dx[i]/dt = f_i(x, u, p). Order matches state indices.",
+      "items": { "$ref": "#/$defs/DerivativeExpr" }
+    },
+
+    "output_equations": {
+      "type": "array",
+      "description": "Explicit output equations: y[i] = g_i(x, u, p). Order matches output indices.",
+      "items": { "$ref": "#/$defs/OutputExpr" },
+      "default": []
+    },
+
+    "functions": {
+      "type": "array",
+      "description": "Helper function definitions (pure, no side effects)",
+      "items": { "$ref": "#/$defs/FunctionDef" },
+      "default": []
+    },
+
+    "structure": {
+      "type": "object",
+      "description": "Structural information about the ODE system",
+      "properties": {
+        "n_states": {
+          "type": "integer",
+          "description": "Number of continuous state variables",
+          "minimum": 0
+        },
+        "n_inputs": {
+          "type": "integer",
+          "description": "Number of input variables",
+          "minimum": 0
+        },
+        "n_outputs": {
+          "type": "integer",
+          "description": "Number of output variables",
+          "minimum": 0
+        },
+        "n_parameters": {
+          "type": "integer",
+          "description": "Number of parameters",
+          "minimum": 0
+        },
+        "is_linear": {
+          "type": "boolean",
+          "description": "True if the system is linear (dx/dt = Ax + Bu)"
+        },
+        "is_time_invariant": {
+          "type": "boolean",
+          "description": "True if no explicit time dependence"
+        }
+      }
+    },
+
+    "source_info": {
+      "type": "object",
+      "description": "Source location mapping for error traceability",
+      "additionalProperties": { "$ref": "#/$defs/SourceLocation" }
+    },
+
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Model-level metadata (Lie groups, annotations, etc.)"
+    }
+  },
+  "required": ["ir_version", "model_name", "states", "derivatives"],
+
+  "$defs": {
+    "Variable": {
+      "type": "object",
+      "description": "Base variable declaration",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Variable name"
+        },
+        "index": {
+          "type": "integer",
+          "description": "Index in its category vector (0-based)",
+          "minimum": 0
+        },
+        "vartype": {
+          "enum": ["Real", "Integer", "Boolean"],
+          "description": "Primitive type",
+          "default": "Real"
+        },
+        "shape": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1 },
+          "description": "Array dimensions ([] = scalar)",
+          "default": []
+        },
+        "unit": {
+          "type": ["string", "null"],
+          "description": "Physical unit (SI)"
+        },
+        "min": {
+          "type": ["number", "null"],
+          "description": "Minimum value constraint"
+        },
+        "max": {
+          "type": ["number", "null"],
+          "description": "Maximum value constraint"
+        },
+        "comment": {
+          "type": ["string", "null"],
+          "description": "Documentation string"
+        }
+      },
+      "required": ["name", "index"]
+    },
+
+    "StateVariable": {
+      "type": "object",
+      "description": "Continuous state variable",
+      "allOf": [{ "$ref": "#/$defs/Variable" }],
+      "properties": {
+        "name": { "type": "string" },
+        "index": { "type": "integer", "minimum": 0 },
+        "start": {
+          "type": ["number", "array"],
+          "description": "Initial value (required for simulation)"
+        },
+        "nominal": {
+          "type": ["number", "null"],
+          "description": "Nominal value for scaling"
+        }
+      },
+      "required": ["name", "index", "start"]
+    },
+
+    "Parameter": {
+      "type": "object",
+      "description": "Parameter variable (fixed after initialization)",
+      "allOf": [{ "$ref": "#/$defs/Variable" }],
+      "properties": {
+        "name": { "type": "string" },
+        "index": { "type": "integer", "minimum": 0 },
+        "value": {
+          "type": ["number", "string", "boolean", "array"],
+          "description": "Parameter value (required)"
+        }
+      },
+      "required": ["name", "index", "value"]
+    },
+
+    "Constant": {
+      "type": "object",
+      "description": "Compile-time constant",
+      "properties": {
+        "name": { "type": "string" },
+        "value": {
+          "type": ["number", "string", "boolean", "array"],
+          "description": "Constant value"
+        },
+        "vartype": {
+          "enum": ["Real", "Integer", "Boolean", "String"],
+          "default": "Real"
+        }
+      },
+      "required": ["name", "value"]
+    },
+
+    "OutputVariable": {
+      "type": "object",
+      "description": "Output variable",
+      "allOf": [{ "$ref": "#/$defs/Variable" }],
+      "properties": {
+        "name": { "type": "string" },
+        "index": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["name", "index"]
+    },
+
+    "DerivativeExpr": {
+      "type": "object",
+      "description": "Explicit derivative: dx[state_index]/dt = expr",
+      "properties": {
+        "state_index": {
+          "type": "integer",
+          "description": "Index of the state this derivative corresponds to",
+          "minimum": 0
+        },
+        "state_name": {
+          "type": "string",
+          "description": "Name of the state (for readability)"
+        },
+        "expr": {
+          "$ref": "#/$defs/Expr",
+          "description": "RHS expression: f_i(x, u, p)"
+        }
+      },
+      "required": ["state_index", "expr"]
+    },
+
+    "OutputExpr": {
+      "type": "object",
+      "description": "Explicit output equation: y[output_index] = expr",
+      "properties": {
+        "output_index": {
+          "type": "integer",
+          "description": "Index of the output",
+          "minimum": 0
+        },
+        "output_name": {
+          "type": "string",
+          "description": "Name of the output (for readability)"
+        },
+        "expr": {
+          "$ref": "#/$defs/Expr",
+          "description": "RHS expression: g_i(x, u, p)"
+        }
+      },
+      "required": ["output_index", "expr"]
+    },
+
+    "Expr": {
+      "type": "object",
+      "description": "Expression tree for explicit RHS expressions",
+      "properties": {
+        "op": {
+          "type": "string",
+          "description": "Operator type",
+          "enum": [
+            "literal", "state_ref", "input_ref", "param_ref", "const_ref",
+            "+", "-", "*", "/", "^", "neg",
+            "==", "!=", "<", "<=", ">", ">=",
+            "and", "or", "not",
+            "if",
+            "array", "index",
+            "sin", "cos", "tan", "asin", "acos", "atan", "atan2",
+            "sinh", "cosh", "tanh",
+            "exp", "log", "log10", "sqrt", "abs", "sign", "floor", "ceil",
+            "min", "max",
+            "cross", "dot", "norm",
+            "call"
+          ]
+        },
+        "args": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Expr" },
+          "description": "Child expressions",
+          "default": []
+        },
+        "value": {
+          "type": ["number", "string", "boolean", "null"],
+          "description": "Literal value (for op='literal')"
+        },
+        "ref_index": {
+          "type": "integer",
+          "description": "Index into state/input/param/const array (for *_ref ops)",
+          "minimum": 0
+        },
+        "ref_name": {
+          "type": "string",
+          "description": "Name of referenced variable (for readability)"
+        },
+        "func": {
+          "type": ["string", "null"],
+          "description": "Function name (for op='call')"
+        }
+      },
+      "required": ["op"]
+    },
+
+    "FunctionDef": {
+      "type": "object",
+      "description": "Pure helper function definition (no while loops for real-time safety)",
+      "properties": {
+        "name": { "type": "string" },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "vartype": { "enum": ["Real", "Integer", "Boolean"], "default": "Real" },
+              "shape": { "type": "array", "items": { "type": "integer" }, "default": [] }
+            },
+            "required": ["name"]
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "vartype": { "enum": ["Real", "Integer", "Boolean"], "default": "Real" },
+              "shape": { "type": "array", "items": { "type": "integer" }, "default": [] }
+            },
+            "required": ["name"]
+          }
+        },
+        "body": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Statement" },
+          "description": "Function body (assignments and bounded loops only)"
+        }
+      },
+      "required": ["name", "inputs", "outputs", "body"]
+    },
+
+    "Statement": {
+      "type": "object",
+      "description": "Statement in function body (real-time safe: no while loops)",
+      "properties": {
+        "stmt": {
+          "type": "string",
+          "enum": ["assign", "if", "for", "return"]
+        },
+        "target": {
+          "type": "string",
+          "description": "Assignment target variable name"
+        },
+        "expr": {
+          "$ref": "#/$defs/Expr",
+          "description": "Expression (for assign)"
+        },
+        "condition": {
+          "$ref": "#/$defs/Expr",
+          "description": "Condition (for if)"
+        },
+        "then_branch": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Statement" }
+        },
+        "else_branch": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Statement" }
+        },
+        "loop_var": {
+          "type": "string",
+          "description": "Loop variable name (for for)"
+        },
+        "loop_start": {
+          "type": "integer",
+          "description": "Loop start (inclusive)"
+        },
+        "loop_end": {
+          "type": "integer",
+          "description": "Loop end (inclusive)"
+        },
+        "loop_body": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Statement" }
+        }
+      },
+      "required": ["stmt"]
+    },
+
+    "SourceLocation": {
+      "type": "object",
+      "properties": {
+        "file": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 }
+      },
+      "required": ["file", "line"]
+    }
+  }
+}
