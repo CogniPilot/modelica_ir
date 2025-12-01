@@ -1,0 +1,182 @@
+{
+  "ir_version": "dae-0.1.0",
+  "base_modelica_version": "0.1",
+  "model_name": "BouncingBall",
+
+  "variables": {
+    "states": [
+      {
+        "name": "h",
+        "vartype": "Real",
+        "derivative": "der_h",
+        "state_index": 0,
+        "start": 1.0,
+        "unit": "m",
+        "comment": "Height above ground"
+      },
+      {
+        "name": "v",
+        "vartype": "Real",
+        "derivative": "der_v",
+        "state_index": 1,
+        "start": 0.0,
+        "unit": "m/s",
+        "comment": "Vertical velocity"
+      }
+    ],
+    "derivatives": [
+      {
+        "name": "der_h",
+        "vartype": "Real",
+        "state": "h",
+        "state_index": 0,
+        "unit": "m/s",
+        "comment": "Time derivative of height"
+      },
+      {
+        "name": "der_v",
+        "vartype": "Real",
+        "state": "v",
+        "state_index": 1,
+        "unit": "m/s^2",
+        "comment": "Time derivative of velocity (acceleration)"
+      }
+    ],
+    "algebraic": [
+      {
+        "name": "z",
+        "vartype": "Real",
+        "comment": "Algebraic variable: z = 2*h + v"
+      }
+    ],
+    "discrete_real": [],
+    "discrete_valued": [],
+    "parameters": [
+      {
+        "name": "e",
+        "vartype": "Real",
+        "start": 0.8,
+        "min": 0.0,
+        "max": 1.0,
+        "comment": "Coefficient of restitution"
+      },
+      {
+        "name": "g",
+        "vartype": "Real",
+        "start": 9.81,
+        "unit": "m/s^2",
+        "comment": "Gravitational acceleration"
+      }
+    ],
+    "constants": [],
+    "inputs": [],
+    "outputs": []
+  },
+
+  "equations": {
+    "continuous": [
+      {
+        "eq_type": "simple",
+        "lhs": { "op": "component_ref", "parts": [{"name": "der_h"}] },
+        "rhs": { "op": "component_ref", "parts": [{"name": "v"}] },
+        "source_ref": "eq1"
+      },
+      {
+        "eq_type": "simple",
+        "lhs": { "op": "component_ref", "parts": [{"name": "der_v"}] },
+        "rhs": { "op": "neg", "args": [{ "op": "component_ref", "parts": [{"name": "g"}] }] },
+        "source_ref": "eq2"
+      },
+      {
+        "eq_type": "simple",
+        "lhs": { "op": "component_ref", "parts": [{"name": "z"}] },
+        "rhs": {
+          "op": "+",
+          "args": [
+            {
+              "op": "*",
+              "args": [
+                { "op": "literal", "value": 2.0 },
+                { "op": "component_ref", "parts": [{"name": "h"}] }
+              ]
+            },
+            { "op": "component_ref", "parts": [{"name": "v"}] }
+          ]
+        },
+        "source_ref": "eq3"
+      }
+    ],
+    "event": [],
+    "discrete_real": [],
+    "discrete_valued": [],
+    "initial": [
+      {
+        "eq_type": "simple",
+        "lhs": { "op": "component_ref", "parts": [{"name": "h"}] },
+        "rhs": { "op": "literal", "value": 1.0 },
+        "source_ref": "init1"
+      },
+      {
+        "eq_type": "simple",
+        "lhs": { "op": "component_ref", "parts": [{"name": "v"}] },
+        "rhs": { "op": "literal", "value": 0.0 },
+        "source_ref": "init2"
+      }
+    ]
+  },
+
+  "event_indicators": [
+    {
+      "name": "ground_contact",
+      "expression": { "op": "component_ref", "parts": [{"name": "h"}] },
+      "direction": "falling",
+      "source_ref": "when1"
+    }
+  ],
+
+  "algorithms": [
+    {
+      "statements": [
+        {
+          "stmt": "reinit",
+          "target": [{"name": "v"}],
+          "expr": {
+            "op": "*",
+            "args": [
+              { "op": "neg", "args": [{ "op": "component_ref", "parts": [{"name": "e"}] }] },
+              { "op": "pre", "args": [{ "op": "component_ref", "parts": [{"name": "v"}] }] }
+            ]
+          },
+          "source_ref": "when1_body"
+        }
+      ]
+    }
+  ],
+
+  "initial_algorithms": [],
+  "functions": [],
+
+  "structure": {
+    "n_states": 2,
+    "n_algebraic": 1,
+    "n_equations": 3,
+    "dae_index": 0,
+    "is_ode": false
+  },
+
+  "source_info": {
+    "eq1": { "file": "BouncingBall.mo", "line": 10, "original_code": "der(h) = v" },
+    "eq2": { "file": "BouncingBall.mo", "line": 11, "original_code": "der(v) = -g" },
+    "eq3": { "file": "BouncingBall.mo", "line": 12, "original_code": "z = 2*h + v" },
+    "init1": { "file": "BouncingBall.mo", "line": 14, "original_code": "h = 1" },
+    "init2": { "file": "BouncingBall.mo", "line": 15, "original_code": "v = 0" },
+    "when1": { "file": "BouncingBall.mo", "line": 17, "original_code": "when h < 0 then" },
+    "when1_body": { "file": "BouncingBall.mo", "line": 18, "original_code": "reinit(v, -e*pre(v))" }
+  },
+
+  "metadata": {
+    "description": "Classic bouncing ball model demonstrating hybrid dynamics",
+    "modelica_version": "3.7",
+    "generated_by": "rumoca 0.1.0"
+  }
+}

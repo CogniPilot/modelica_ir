@@ -5,20 +5,56 @@ Which modelica_ir schema should you use? This guide helps you choose.
 ## Quick Decision Tree
 
 ```
-Do you need connect equations preserved?
+Are you building a simulation backend or code generator?
 │
-├─ YES → Use modelica_ir-0.2.0.schema.json
+├─ YES → Use dae_ir-0.1.0.schema.json ⭐ (explicit DAE structure)
 │
 └─ NO
    │
-   Do you need MCP-0031 Base Modelica compliance?
+   Do you need connect equations preserved?
    │
-   ├─ YES → Use base_modelica_ir-0.1.0.schema.json
+   ├─ YES → Use modelica_ir-0.2.0.schema.json
    │
-   └─ NO → Use modelica_ir-0.2.0.schema.json (more features)
+   └─ NO
+      │
+      Do you need strict MCP-0031 compliance?
+      │
+      ├─ YES → Use base_modelica_ir-0.1.0.schema.json
+      │
+      └─ NO → Use dae_ir-0.1.0.schema.json ⭐ (recommended default)
 ```
 
 ## Schema Comparison
+
+### dae_ir-0.1.0.schema.json (DAE IR) ⭐ Recommended
+
+**Use When:**
+- ✅ Building simulation backends or code generators
+- ✅ Want explicit state/derivative/algebraic classification (no `der()` scanning)
+- ✅ Need efficient BLT analysis and structural processing
+- ✅ Want a symbolic format similar to FMI's structure
+- ✅ Targeting ODE/DAE solver integration
+
+**Advantages:**
+- **Explicit DAE structure** matching Modelica Spec Appendix B
+- **State/derivative linkage** - Direct mapping like FMI's derivative attribute
+- **Event indicators** - Zero-crossing functions for hybrid systems
+- **Structural metadata** - n_states, n_algebraic, dae_index
+- **No inference needed** - Eliminates `der()` scanning in backends
+- **Superset of Base Modelica** - All Base Modelica features plus classification
+
+**Disadvantages:**
+- Requires compiler to perform variable classification
+- Slightly larger file size due to additional metadata
+
+**Example Use Cases:**
+- Rumoca → Cyecca simulation pipeline
+- JAX/NumPy/C code generation
+- BLT sorting and causality analysis
+- Index reduction algorithms
+- FMU generation
+
+---
 
 ### modelica_ir-0.2.0.schema.json (Full Modelica 3.7)
 
@@ -80,21 +116,22 @@ Do you need connect equations preserved?
 
 ## Feature Matrix
 
-| Feature | modelica_ir v0.2.0 | base_modelica_ir base-0.1.0 |
-|---------|--------------------|-----------------------------|
-| **Connect Equations** | ✅ ConnectEquation | ❌ Must pre-expand |
-| **If-Equations** | ✅ Balanced + Unbalanced | ⚠️ Balanced only |
-| **When-Equations** | ✅ Full support | ✅ Full support |
-| **For-Equations** | ✅ Full support | ✅ Full support |
-| **Events (separate)** | ✅ Event type | ❌ Use when-equations |
-| **Algorithms** | ✅ 9 statement types | ✅ 6 statement types |
-| **Variables** | ✅ Unified list | ⚠️ Separated lists |
-| **Variability** | ✅ Full (5 types) | ⚠️ Simplified (4 types) |
-| **Source Tracking** | ⚠️ Optional | ✅ Required |
-| **Operators** | ✅ 70+ operators | ⚠️ ~35 operators |
-| **MCP-0031 Compliant** | ❌ No | ✅ Yes |
-| **Modelica 3.7 Complete** | ✅ Yes | ❌ Subset |
-| **eFMI Compatible** | ⚠️ Partial | ✅ Yes |
+| Feature | dae_ir ⭐ | modelica_ir v0.2.0 | base_modelica_ir |
+|---------|-----------|--------------------|--------------------|
+| **Explicit State Classification** | ✅ states/derivatives/algebraic | ❌ Must infer | ❌ Must infer |
+| **State/Derivative Linkage** | ✅ FMI-like | ❌ No | ❌ No |
+| **Event Indicators** | ✅ Zero-crossings | ❌ No | ❌ No |
+| **Structural Metadata** | ✅ n_states, dae_index | ❌ No | ❌ No |
+| **Equation Classification** | ✅ continuous/event/discrete | ⚠️ Unified | ⚠️ Unified |
+| **Connect Equations** | ❌ Must pre-expand | ✅ ConnectEquation | ❌ Must pre-expand |
+| **If-Equations** | ⚠️ Balanced only | ✅ Balanced + Unbalanced | ⚠️ Balanced only |
+| **When-Equations** | ✅ Full support | ✅ Full support | ✅ Full support |
+| **For-Equations** | ✅ Full support | ✅ Full support | ✅ Full support |
+| **Algorithms** | ✅ 7 statement types | ✅ 9 statement types | ✅ 6 statement types |
+| **Source Tracking** | ✅ Optional | ⚠️ Optional | ✅ Required |
+| **MCP-0031 Compliant** | ⚠️ Superset | ❌ No | ✅ Yes |
+| **Modelica Spec App B** | ✅ Yes | ❌ No | ❌ No |
+| **Simulation-Ready** | ✅ Direct solver mapping | ❌ Needs processing | ❌ Needs processing |
 
 Legend: ✅ = Fully supported, ⚠️ = Partial/Different, ❌ = Not supported
 
@@ -146,14 +183,17 @@ Legend: ✅ = Fully supported, ⚠️ = Partial/Different, ❌ = Not supported
 
 ---
 
-### Scenario 5: Rumoca → Cyecca Analysis
-**Model:** Any Modelica model for reachability analysis
+### Scenario 5: Rumoca → Cyecca Simulation Pipeline ⭐
+**Model:** Any Modelica model for simulation
 
-**Recommended:** `modelica_ir-0.2.0` initially, consider `base-0.1.0` for production
+**Recommended:** `dae_ir-0.1.0` (DAE IR)
 
 **Why:**
-- v0.2.0 for development (more debugging info, preserves structure)
-- base-0.1.0 for production (simpler, faster, guaranteed compatibility)
+- Explicit state/derivative/algebraic classification (no `der()` scanning needed)
+- Direct mapping to ODE/DAE solver APIs
+- BLT analysis is more efficient with pre-classified variables
+- Event indicators ready for hybrid simulation
+- Structural metadata (n_states, dae_index) for solver selection
 
 ---
 
@@ -198,21 +238,22 @@ Legend: ✅ = Fully supported, ⚠️ = Partial/Different, ❌ = Not supported
 
 ## Cyecca Integration
 
-### Recommended for Cyecca v1.0
-**Schema:** `modelica_ir-0.2.0` (Full Modelica)
+### Recommended for Cyecca
+**Schema:** `dae_ir-0.1.0` (DAE IR) ⭐
 
 **Reason:**
-- Cyecca already has ComponentRef, FunctionCall(der/pre/edge)
-- Supports for-equations and when-equations
-- Adding if-equations and algorithms is straightforward
-- More features = better analysis capabilities
+- Explicit state/derivative classification eliminates `der()` scanning
+- Direct mapping to ODE/DAE solver APIs (scipy, JAX, etc.)
+- BLT analysis is more efficient with pre-classified variables
+- Event indicators ready for hybrid simulation
+- Structural metadata enables automatic solver selection
 
-### Future: Cyecca v2.0
-**Additional Support:** `base_modelica_ir-0.1.0` (Base Modelica)
+### Legacy Support
+**Schema:** `base_modelica_ir-0.1.0` (Base Modelica)
 
 **Reason:**
+- MCP-0031 compliance for tool interoperability
 - eFMI integration
-- Multi-tool interoperability
 - Educational use cases
 
 ---
@@ -221,19 +262,18 @@ Legend: ✅ = Fully supported, ⚠️ = Partial/Different, ❌ = Not supported
 
 ### Recommended Export Strategy
 
-**Option 1: Export Both**
-- Rumoca exports both v0.2.0 and base-0.1.0
-- User chooses at export time: `rumoca export --format=full|base`
+**Primary:** `dae_ir-0.1.0` (DAE IR) ⭐
+- Rumoca performs variable classification during flattening
+- Exports explicit state/derivative/algebraic arrays
+- Generates event indicators from when-conditions
+- Usage: `rumoca export --format=dae`
 
-**Option 2: Export Full, Convert**
-- Rumoca exports v0.2.0 only
-- Separate converter tool: `modelica_ir_convert --input=full --output=base`
+**Alternative:** `base_modelica_ir-0.1.0` (Base Modelica)
+- For MCP-0031 compliance requirements
+- Usage: `rumoca export --format=base`
 
-**Option 3: Detect and Export**
-- Rumoca detects if model uses connectors
-- Automatically chooses v0.2.0 (has connects) or base-0.1.0 (no connects)
-
-**Recommendation:** Start with **Option 1**, add **Option 2** later.
+**Option: Export Both**
+- `rumoca export --format=dae,base` exports both formats
 
 ---
 
@@ -241,11 +281,12 @@ Legend: ✅ = Fully supported, ⚠️ = Partial/Different, ❌ = Not supported
 
 | Use Case | Schema | Rationale |
 |----------|--------|-----------|
+| **Simulation/Code Generation** ⭐ | dae-0.1.0 | Explicit DAE structure, no inference needed |
+| **Rumoca → Cyecca Pipeline** ⭐ | dae-0.1.0 | Direct solver mapping, efficient BLT |
+| **ODE/DAE Solvers** | dae-0.1.0 | State/derivative linkage, event indicators |
 | **Connector-based models** | v0.2.0 | Preserve connect semantics |
 | **eFMI Equation Code** | base-0.1.0 | Direct compatibility |
 | **Multi-tool exchange** | base-0.1.0 | MCP-0031 compliance |
-| **Cyecca analysis** | v0.2.0 | More features, richer info |
-| **Pure ODE/DAE** | Either | Choose based on other factors |
 | **Maximum compatibility** | base-0.1.0 | Guaranteed interoperability |
 | **Maximum features** | v0.2.0 | Full Modelica 3.7 support |
 
@@ -261,5 +302,5 @@ Legend: ✅ = Fully supported, ⚠️ = Partial/Different, ❌ = Not supported
 
 ---
 
-**Last Updated:** 2025-01-29
-**Schema Versions:** v0.2.0, base-0.1.0
+**Last Updated:** 2025-11-30
+**Schema Versions:** dae-0.1.0, v0.2.0, base-0.1.0

@@ -4,24 +4,38 @@ JSON schemas for representing Modelica models as intermediate representations (I
 
 ## Overview
 
-This repository defines **two complementary JSON schemas** for representing Modelica models:
+This repository defines **three complementary JSON schemas** for representing Modelica models:
 
-### 1. Base Modelica IR (`base_modelica_ir-0.1.0`)
+### 1. DAE IR (`dae_ir-0.1.0`) ⭐ Recommended
+**Simulation-ready format with explicit DAE structure matching [Modelica Spec Appendix B](https://specification.modelica.org/master/)**
+
+- ✅ **Explicit variable classification** - States, derivatives, algebraic, discrete (no inference needed)
+- ✅ **FMI-like structure** - Symbolic equivalent of what FMI compiles away
+- ✅ **Direct solver mapping** - Maps directly to ODE/DAE solver APIs
+- ✅ **Event indicators** - Zero-crossing functions for hybrid systems
+- ✅ **Superset of Base Modelica** - Extends MCP-0031 with DAE metadata
+
+**Primary use case:** Efficient simulation, code generation, BLT analysis
+
+```
+Modelica source → Rumoca compiler → DAE IR JSON → Cyecca/Solver → Simulation
+```
+
+### 2. Base Modelica IR (`base_modelica_ir-0.1.0`)
 **Simplified, flattened format based on [MCP-0031](https://github.com/modelica/ModelicaSpecification/blob/MCP/0031/RationaleMCP/0031/)**
 
 - ✅ **Compilation target** - Designed for code generation and simulation backends
 - ✅ **Minimal complexity** - Flattened, no connect equations, balanced if-equations only
-- ✅ **DAE-ready** - Clear separation of constants, parameters, and variables
 - ✅ **Extensible** - Supports tool-specific annotations (e.g., Lie groups for manifold-aware solvers)
 - ✅ **Standard-aligned** - Based on emerging Base Modelica standard (MCP-0031)
 
-**Primary use case:** Exchange format between compilers (Rumoca) and backends (Cyecca)
+**Primary use case:** Tool interoperability, MCP-0031 compliance
 
 ```
-Modelica source → Rumoca compiler → Base Modelica JSON → Cyecca backend → Generated code
+Modelica source → Rumoca compiler → Base Modelica JSON → Backend
 ```
 
-### 2. Full Modelica IR (`modelica_ir-0.2.0`)
+### 3. Full Modelica IR (`modelica_ir-0.2.0`)
 **Comprehensive format following Modelica 3.7 specification**
 
 - ✅ **Feature-complete** - Supports connect equations, unbalanced if-equations, events
@@ -32,21 +46,34 @@ Modelica source → Rumoca compiler → Base Modelica JSON → Cyecca backend �
 
 ## Which Schema Should I Use?
 
-**Use Base Modelica IR (`base_modelica_ir-0.1.0`) if:**
+**Use DAE IR (`dae_ir-0.1.0`) if:** ⭐ Recommended for most cases
 - You're building a simulation backend or code generator
-- You need maximum tool interoperability
-- You want a simplified, standardized format
+- You want explicit state/derivative/algebraic classification (no `der()` scanning)
+- You need efficient BLT analysis and structural processing
+- You want a symbolic format similar to FMI's structure
+
+**Use Base Modelica IR (`base_modelica_ir-0.1.0`) if:**
+- You need strict MCP-0031 compliance
+- You're exchanging models with tools that only support Base Modelica
+- You don't need explicit variable classification
 
 **Use Full Modelica IR (`modelica_ir-0.2.0`) if:**
 - You're building analysis tools that need rich structural information
 - You need to represent models before flattening (e.g., compiler intermediate stages)
 - You want comprehensive Modelica 3.7 feature support
 
-**For the Rumoca → Cyecca pipeline:** Use **Base Modelica IR** with Lie group annotations.
+**For the Rumoca → Cyecca pipeline:** Use **DAE IR** for best performance.
 
 See [SCHEMA_SELECTION_GUIDE.md](SCHEMA_SELECTION_GUIDE.md) for detailed comparison.
 
 ## Features
+
+### DAE IR ⭐
+- ✅ **Explicit DAE structure** - Matches Modelica Spec Appendix B formalism
+- ✅ **State/derivative linkage** - Direct mapping like FMI's derivative attribute
+- ✅ **Event indicators** - Zero-crossing functions for hybrid systems
+- ✅ **Structural metadata** - n_states, n_algebraic, dae_index
+- ✅ **Superset of Base Modelica** - All Base Modelica features plus classification
 
 ### Base Modelica IR
 - ✅ **MCP-0031 compliant** - Aligned with emerging standard
@@ -64,12 +91,76 @@ See [SCHEMA_SELECTION_GUIDE.md](SCHEMA_SELECTION_GUIDE.md) for detailed comparis
 
 ## Current Versions
 
+- **DAE IR:** `dae-0.1.0` (Modelica Spec Appendix B DAE formalism) ⭐
 - **Base Modelica IR:** `base-0.1.0` (aligned with MCP-0031)
 - **Full Modelica IR:** `0.2.0` (aligned with Modelica 3.7)
 
 See [SCHEMA_CHANGELOG.md](SCHEMA_CHANGELOG.md) for version history and migration guides.
 
 ## Structure
+
+### DAE IR Structure ⭐
+
+```json
+{
+  "ir_version": "dae-0.1.0",
+  "base_modelica_version": "0.1",
+  "model_name": "BouncingBall",
+
+  "variables": {
+    "states": [
+      {"name": "h", "vartype": "Real", "derivative": "der_h", "start": 1.0, "unit": "m"},
+      {"name": "v", "vartype": "Real", "derivative": "der_v", "start": 0.0, "unit": "m/s"}
+    ],
+    "derivatives": [
+      {"name": "der_h", "vartype": "Real", "state": "h"},
+      {"name": "der_v", "vartype": "Real", "state": "v"}
+    ],
+    "algebraic": [
+      {"name": "z", "vartype": "Real", "comment": "z = 2*h + v"}
+    ],
+    "discrete_real": [],
+    "discrete_valued": [],
+    "parameters": [
+      {"name": "e", "vartype": "Real", "start": 0.8},
+      {"name": "g", "vartype": "Real", "start": 9.81, "unit": "m/s^2"}
+    ],
+    "constants": [],
+    "inputs": [],
+    "outputs": []
+  },
+
+  "equations": {
+    "continuous": [
+      {"eq_type": "simple", "lhs": {"op": "component_ref", "parts": [{"name": "der_h"}]}, "rhs": {...}},
+      {"eq_type": "simple", "lhs": {"op": "component_ref", "parts": [{"name": "der_v"}]}, "rhs": {...}}
+    ],
+    "event": [],
+    "discrete_real": [],
+    "discrete_valued": [],
+    "initial": [...]
+  },
+
+  "event_indicators": [
+    {"name": "ground_contact", "expression": {...}, "direction": "falling"}
+  ],
+
+  "structure": {
+    "n_states": 2,
+    "n_algebraic": 1,
+    "dae_index": 0,
+    "is_ode": false
+  }
+}
+```
+
+**Key features:**
+- **Explicit variable classification** matching Modelica Spec Appendix B (x, der(x), y, z, m, p)
+- **State/derivative linkage** - Each state has a `derivative` field pointing to its derivative
+- **Equation classification** - Separate continuous, event, discrete_real, discrete_valued, initial
+- **Event indicators** - Zero-crossing functions similar to FMI's `getEventIndicators()`
+- **Structural metadata** - n_states, n_algebraic, dae_index for direct solver integration
+- **No inference needed** - Eliminates need for `der()` scanning in backends
 
 ### Base Modelica IR Structure
 
@@ -111,10 +202,11 @@ See [SCHEMA_CHANGELOG.md](SCHEMA_CHANGELOG.md) for version history and migration
 ```
 
 **Key features:**
-- Separate lists for constants, parameters, and variables (DAE-ready)
+- Separate lists for constants, parameters, and variables
 - Simpler equation types (no connect, balanced if-equations only)
 - Source tracking for error reporting
 - Extensible metadata for tool-specific annotations
+- **Requires inference** - Backend must scan equations for `der()` to identify states
 
 ### Full Modelica IR Structure
 
@@ -396,6 +488,13 @@ Model-level and variable-level metadata for annotations:
 
 See [examples/](examples/) directory:
 
+### DAE IR Examples ⭐
+
+- [bouncing_ball_dae.json](examples/bouncing_ball_dae.json) - Bouncing ball with explicit DAE structure
+  - Demonstrates: state/derivative linkage, event indicators, structural metadata, equation classification
+
+**Recommended:** Use DAE IR examples as templates for simulation-ready models.
+
 ### Base Modelica IR Examples
 
 **Basic Examples:**
@@ -415,8 +514,6 @@ See [docs/LIE_GROUP_ANNOTATIONS.md](docs/LIE_GROUP_ANNOTATIONS.md) for comprehen
 ### Full Modelica IR Examples
 - [bouncing_ball_v0.2.json](examples/bouncing_ball_v0.2.json) - Bouncing ball in full Modelica IR format
 - [bouncing_ball.json](examples/bouncing_ball.json) - Legacy v0.1.0 format
-
-**Recommended:** Use Base Modelica examples as templates for new models.
 
 ## Validation
 

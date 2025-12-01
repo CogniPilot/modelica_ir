@@ -1,0 +1,657 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cyecca/modelica_ir/schemas/dae_ir-0.1.0.schema.json",
+  "title": "DAE IR",
+  "description": "Differential-Algebraic Equation Intermediate Representation. A superset of Base Modelica IR (MCP-0031) that adds explicit variable classification matching the Modelica specification's DAE formalism (Appendix B). This format provides a symbolic representation similar to what FMI compiles away, enabling efficient structural analysis while preserving full equation structure.",
+  "type": "object",
+  "properties": {
+    "ir_version": {
+      "type": "string",
+      "description": "Version of this DAE IR schema",
+      "const": "dae-0.1.0"
+    },
+    "base_modelica_version": {
+      "type": "string",
+      "description": "Base Modelica specification version (MCP-0031) this extends",
+      "const": "0.1"
+    },
+    "model_name": {
+      "type": "string",
+      "description": "Fully qualified name of the flattened model"
+    },
+
+    "variables": {
+      "type": "object",
+      "description": "Variables classified according to Modelica spec Appendix B DAE formalism. This explicit classification eliminates the need for der() scanning and enables direct mapping to ODE/DAE solvers.",
+      "properties": {
+        "states": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/StateVariable" },
+          "description": "x: Continuous-time variables appearing differentiated (have der(x) in equations)",
+          "default": []
+        },
+        "derivatives": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/DerivativeVariable" },
+          "description": "der(x): Time derivatives of state variables, explicitly linked to their state",
+          "default": []
+        },
+        "algebraic": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Variable" },
+          "description": "y: Continuous-time variables that do not appear differentiated",
+          "default": []
+        },
+        "discrete_real": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Variable" },
+          "description": "z: Discrete-time Real variables (change only at event instants)",
+          "default": []
+        },
+        "discrete_valued": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Variable" },
+          "description": "m: Discrete-valued variables (Boolean, Integer) that change only at events",
+          "default": []
+        },
+        "parameters": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Variable" },
+          "description": "p: Parameter variables (fixed after initialization)",
+          "default": []
+        },
+        "constants": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Variable" },
+          "description": "Constant variables (compile-time evaluation)",
+          "default": []
+        },
+        "inputs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Variable" },
+          "description": "u: External input signals",
+          "default": []
+        },
+        "outputs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Variable" },
+          "description": "Output variables (functions of states/algebraic/inputs)",
+          "default": []
+        }
+      },
+      "required": ["states", "derivatives", "algebraic", "parameters"]
+    },
+
+    "equations": {
+      "type": "object",
+      "description": "Equations classified by when they are active, matching Modelica spec Appendix B equations B.1a-d",
+      "properties": {
+        "continuous": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Equation" },
+          "description": "0 = f(der(x), x, y, t, m, pre(m), pre(z)) - hold during continuous integration",
+          "default": []
+        },
+        "event": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Equation" },
+          "description": "0 = fc(...) - additional constraints at event instants",
+          "default": []
+        },
+        "discrete_real": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Equation" },
+          "description": "z = fz(...) - equations defining discrete Real variables",
+          "default": []
+        },
+        "discrete_valued": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Equation" },
+          "description": "m = fm(...) - equations defining discrete-valued (Boolean/Integer) variables",
+          "default": []
+        },
+        "initial": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Equation" },
+          "description": "Initial equations (only hold at t=0)",
+          "default": []
+        }
+      },
+      "required": ["continuous"]
+    },
+
+    "event_indicators": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/EventIndicator" },
+      "description": "c: Relation expressions for event detection (zero-crossings), similar to FMI event indicators",
+      "default": []
+    },
+
+    "algorithms": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/AlgorithmSection" },
+      "description": "Algorithm sections (imperative code)",
+      "default": []
+    },
+    "initial_algorithms": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/AlgorithmSection" },
+      "description": "Initial algorithm sections",
+      "default": []
+    },
+    "functions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/FunctionDef" },
+      "description": "Function definitions",
+      "default": []
+    },
+
+    "structure": {
+      "type": "object",
+      "description": "Structural information about the DAE system (optional, can be computed)",
+      "properties": {
+        "n_states": {
+          "type": "integer",
+          "description": "Number of continuous state variables",
+          "minimum": 0
+        },
+        "n_algebraic": {
+          "type": "integer",
+          "description": "Number of algebraic variables",
+          "minimum": 0
+        },
+        "n_equations": {
+          "type": "integer",
+          "description": "Total number of scalar equations",
+          "minimum": 0
+        },
+        "dae_index": {
+          "type": "integer",
+          "description": "Differential index of the DAE (0 = ODE, 1+ = DAE)",
+          "minimum": 0
+        },
+        "is_ode": {
+          "type": "boolean",
+          "description": "True if system is purely ODE (no algebraic constraints)"
+        }
+      }
+    },
+
+    "source_info": {
+      "type": "object",
+      "description": "Source location mapping for error traceability",
+      "additionalProperties": { "$ref": "#/$defs/SourceLocation" }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Model-level metadata and annotations (e.g., Lie groups)"
+    }
+  },
+  "required": ["ir_version", "base_modelica_version", "model_name", "variables", "equations"],
+
+  "$defs": {
+    "Variable": {
+      "type": "object",
+      "description": "Base variable declaration",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Fully qualified variable name (flattened hierarchy)"
+        },
+        "vartype": {
+          "enum": ["Real", "Integer", "Boolean", "String"],
+          "description": "Primitive type"
+        },
+        "shape": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1 },
+          "description": "Array dimensions ([] = scalar)",
+          "default": []
+        },
+        "start": {
+          "type": ["number", "string", "boolean", "null"],
+          "description": "Start value for initialization"
+        },
+        "unit": {
+          "type": ["string", "null"],
+          "description": "Physical unit (SI)"
+        },
+        "displayUnit": {
+          "type": ["string", "null"],
+          "description": "Display unit"
+        },
+        "min": {
+          "type": ["number", "null"],
+          "description": "Minimum value constraint"
+        },
+        "max": {
+          "type": ["number", "null"],
+          "description": "Maximum value constraint"
+        },
+        "nominal": {
+          "type": ["number", "null"],
+          "description": "Nominal value for scaling"
+        },
+        "fixed": {
+          "type": ["boolean", "null"],
+          "description": "Whether start value is fixed (for initialization)"
+        },
+        "comment": {
+          "type": ["string", "null"],
+          "description": "Documentation string"
+        },
+        "source_ref": {
+          "type": "string",
+          "description": "Reference to original source location"
+        }
+      },
+      "required": ["name", "vartype"]
+    },
+
+    "StateVariable": {
+      "type": "object",
+      "description": "Continuous state variable with explicit derivative linkage",
+      "allOf": [{ "$ref": "#/$defs/Variable" }],
+      "properties": {
+        "derivative": {
+          "type": "string",
+          "description": "Name of the corresponding derivative variable (der_x for state x)"
+        },
+        "state_index": {
+          "type": "integer",
+          "description": "Index in the state vector (for code generation)",
+          "minimum": 0
+        }
+      },
+      "required": ["name", "vartype", "derivative"]
+    },
+
+    "DerivativeVariable": {
+      "type": "object",
+      "description": "Derivative variable with explicit state linkage (like FMI derivative attribute)",
+      "allOf": [{ "$ref": "#/$defs/Variable" }],
+      "properties": {
+        "state": {
+          "type": "string",
+          "description": "Name of the corresponding state variable this is the derivative of"
+        },
+        "state_index": {
+          "type": "integer",
+          "description": "Index of the state in the state vector",
+          "minimum": 0
+        }
+      },
+      "required": ["name", "vartype", "state"]
+    },
+
+    "EventIndicator": {
+      "type": "object",
+      "description": "Event indicator for zero-crossing detection (similar to FMI getEventIndicators)",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name/identifier for this event indicator"
+        },
+        "expression": {
+          "$ref": "#/$defs/Expr",
+          "description": "The relation expression (e.g., x > 0 becomes the expression 'x')"
+        },
+        "direction": {
+          "enum": ["rising", "falling", "both"],
+          "description": "Which zero-crossing direction triggers the event",
+          "default": "both"
+        },
+        "source_ref": {
+          "type": "string",
+          "description": "Reference to original when-condition in source"
+        }
+      },
+      "required": ["expression"]
+    },
+
+    "ComponentRefPart": {
+      "type": "object",
+      "description": "One part of a hierarchical component reference",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Identifier name"
+        },
+        "subscripts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Expr" },
+          "description": "Array subscripts",
+          "default": []
+        }
+      },
+      "required": ["name"]
+    },
+
+    "Expr": {
+      "type": "object",
+      "description": "Expression tree",
+      "properties": {
+        "op": {
+          "type": "string",
+          "description": "Operator type",
+          "enum": [
+            "literal", "component_ref",
+            "+", "-", "*", "/", "^", "neg", "not",
+            "==", "!=", "<", "<=", ">", ">=",
+            "and", "or",
+            "if",
+            "array", "range",
+            "der", "pre", "edge", "change", "sample", "hold",
+            "sin", "cos", "tan", "asin", "acos", "atan", "atan2",
+            "sinh", "cosh", "tanh",
+            "exp", "log", "log10", "sqrt", "abs", "sign", "floor", "ceil",
+            "min", "max", "sum", "product",
+            "cross", "skew", "transpose", "inv",
+            "call"
+          ]
+        },
+        "args": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Expr" },
+          "default": []
+        },
+        "value": {
+          "type": ["number", "string", "boolean", "null"],
+          "description": "Literal value (for op='literal')"
+        },
+        "parts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ComponentRefPart" },
+          "description": "Component reference parts (for op='component_ref')"
+        },
+        "func": {
+          "type": ["string", "null"],
+          "description": "Function name (for op='call')"
+        },
+        "source_ref": {
+          "type": "string",
+          "description": "Reference to original source location"
+        }
+      },
+      "required": ["op"]
+    },
+
+    "SimpleEquation": {
+      "type": "object",
+      "description": "Simple equality equation: lhs = rhs",
+      "properties": {
+        "eq_type": { "const": "simple" },
+        "lhs": { "$ref": "#/$defs/Expr" },
+        "rhs": { "$ref": "#/$defs/Expr" },
+        "source_ref": { "type": "string" }
+      },
+      "required": ["eq_type", "lhs", "rhs"]
+    },
+
+    "ForEquation": {
+      "type": "object",
+      "description": "For-loop equation",
+      "properties": {
+        "eq_type": { "const": "for" },
+        "indices": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "index": { "type": "string" },
+              "range": { "$ref": "#/$defs/Expr" }
+            },
+            "required": ["index", "range"]
+          }
+        },
+        "equations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Equation" }
+        },
+        "source_ref": { "type": "string" }
+      },
+      "required": ["eq_type", "indices", "equations"]
+    },
+
+    "IfEquation": {
+      "type": "object",
+      "description": "Balanced if-equation",
+      "properties": {
+        "eq_type": { "const": "if" },
+        "branches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "condition": { "$ref": "#/$defs/Expr" },
+              "equations": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/Equation" }
+              }
+            },
+            "required": ["condition", "equations"]
+          }
+        },
+        "else_equations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Equation" },
+          "default": []
+        },
+        "source_ref": { "type": "string" }
+      },
+      "required": ["eq_type", "branches", "else_equations"]
+    },
+
+    "WhenEquation": {
+      "type": "object",
+      "description": "When-equation for discrete events",
+      "properties": {
+        "eq_type": { "const": "when" },
+        "branches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "condition": { "$ref": "#/$defs/Expr" },
+              "equations": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/Equation" }
+              }
+            },
+            "required": ["condition", "equations"]
+          }
+        },
+        "source_ref": { "type": "string" }
+      },
+      "required": ["eq_type", "branches"]
+    },
+
+    "Equation": {
+      "description": "Equation types",
+      "oneOf": [
+        { "$ref": "#/$defs/SimpleEquation" },
+        { "$ref": "#/$defs/ForEquation" },
+        { "$ref": "#/$defs/IfEquation" },
+        { "$ref": "#/$defs/WhenEquation" }
+      ]
+    },
+
+    "Assignment": {
+      "type": "object",
+      "description": "Assignment statement: target := expr",
+      "properties": {
+        "stmt": { "const": "assign" },
+        "target": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ComponentRefPart" }
+        },
+        "expr": { "$ref": "#/$defs/Expr" },
+        "source_ref": { "type": "string" }
+      },
+      "required": ["stmt", "target", "expr"]
+    },
+
+    "IfStatement": {
+      "type": "object",
+      "properties": {
+        "stmt": { "const": "if" },
+        "branches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "condition": { "$ref": "#/$defs/Expr" },
+              "statements": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/Statement" }
+              }
+            },
+            "required": ["condition", "statements"]
+          }
+        },
+        "else_statements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Statement" },
+          "default": []
+        },
+        "source_ref": { "type": "string" }
+      },
+      "required": ["stmt", "branches"]
+    },
+
+    "ForStatement": {
+      "type": "object",
+      "properties": {
+        "stmt": { "const": "for" },
+        "indices": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "index": { "type": "string" },
+              "range": { "$ref": "#/$defs/Expr" }
+            },
+            "required": ["index", "range"]
+          }
+        },
+        "body": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Statement" }
+        },
+        "source_ref": { "type": "string" }
+      },
+      "required": ["stmt", "indices", "body"]
+    },
+
+    "WhileStatement": {
+      "type": "object",
+      "properties": {
+        "stmt": { "const": "while" },
+        "condition": { "$ref": "#/$defs/Expr" },
+        "body": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Statement" }
+        },
+        "source_ref": { "type": "string" }
+      },
+      "required": ["stmt", "condition", "body"]
+    },
+
+    "ReinitStatement": {
+      "type": "object",
+      "description": "Reinitialize a state variable at an event",
+      "properties": {
+        "stmt": { "const": "reinit" },
+        "target": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ComponentRefPart" }
+        },
+        "expr": { "$ref": "#/$defs/Expr" },
+        "source_ref": { "type": "string" }
+      },
+      "required": ["stmt", "target", "expr"]
+    },
+
+    "BreakStatement": {
+      "type": "object",
+      "properties": {
+        "stmt": { "const": "break" },
+        "source_ref": { "type": "string" }
+      },
+      "required": ["stmt"]
+    },
+
+    "ReturnStatement": {
+      "type": "object",
+      "properties": {
+        "stmt": { "const": "return" },
+        "source_ref": { "type": "string" }
+      },
+      "required": ["stmt"]
+    },
+
+    "Statement": {
+      "description": "Algorithm statements",
+      "oneOf": [
+        { "$ref": "#/$defs/Assignment" },
+        { "$ref": "#/$defs/IfStatement" },
+        { "$ref": "#/$defs/ForStatement" },
+        { "$ref": "#/$defs/WhileStatement" },
+        { "$ref": "#/$defs/ReinitStatement" },
+        { "$ref": "#/$defs/BreakStatement" },
+        { "$ref": "#/$defs/ReturnStatement" }
+      ]
+    },
+
+    "AlgorithmSection": {
+      "type": "object",
+      "properties": {
+        "statements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Statement" }
+        }
+      },
+      "required": ["statements"]
+    },
+
+    "FunctionDef": {
+      "type": "object",
+      "description": "Function definition",
+      "properties": {
+        "name": { "type": "string" },
+        "inputs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Variable" }
+        },
+        "outputs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Variable" }
+        },
+        "protected_vars": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Variable" },
+          "default": []
+        },
+        "algorithm": { "$ref": "#/$defs/AlgorithmSection" },
+        "is_pure": {
+          "type": "boolean",
+          "default": true
+        },
+        "source_ref": { "type": "string" }
+      },
+      "required": ["name", "inputs", "outputs", "algorithm"]
+    },
+
+    "SourceLocation": {
+      "type": "object",
+      "properties": {
+        "file": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 },
+        "original_code": { "type": "string" }
+      },
+      "required": ["file", "line"]
+    }
+  }
+}
